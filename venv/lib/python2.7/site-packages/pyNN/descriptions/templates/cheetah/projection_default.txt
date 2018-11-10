@@ -1,0 +1,10 @@
+Projection "$label" from "$pre.label" ($pre.size cells) to "$post.label" ($post.size cells)
+    Receptor type : $receptor_type
+    Connector     : $connector.name
+        #for $name,$value in $connector.parameters.items()
+        $name : $value
+        #end for
+    Synapse type : (to be reimplemented)
+    Total connections : $size
+    Local connections : $size_local
+

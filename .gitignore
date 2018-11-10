@@ -1,0 +1,4 @@
+.screenshot*
+screenCapture.png
+application_generated_data_files
+reports/*

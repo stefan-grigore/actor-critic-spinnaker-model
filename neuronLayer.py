@@ -18,8 +18,7 @@ sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
 input1 = sim.Population(6, sim.external_devices.SpikeInjector(), label="input1")
 
 pre_pop = sim.Population(6, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="pre_pop")
-
-post_pop = sim.Population(6, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="post_pop")
+post_pop = sim.Population(6, sim.IF_curr_exp(tau_syn_E=50, tau_refrac=50), label="post_pop")
 sim.external_devices.activate_live_output_for(pre_pop, database_notify_host="localhost", database_notify_port_num=19996)
 sim.external_devices.activate_live_output_for(input1, database_notify_host="localhost", database_notify_port_num=19998)
 sim.external_devices.activate_live_output_for(post_pop, database_notify_host="localhost", database_notify_port_num=20000)

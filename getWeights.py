@@ -2,10 +2,8 @@ import pyNN.spiNNaker as sim
 import pyNN.utility.plotting as plot
 import matplotlib.pyplot as plt
 import threading
-from random import randint, uniform
 from time import sleep
 from pykeyboard import PyKeyboard
-import keyboard
 import cv2
 import numpy as np
 import pyautogui
@@ -37,7 +35,6 @@ input_projection1 = sim.Projection(input1, pre_pop, sim.OneToOneConnector(),
 
 pre_pop.record(["spikes", "v"])
 post_pop.record(["spikes", "v"])
-simtime = 100
 
 k = PyKeyboard()
 
@@ -49,36 +46,26 @@ def receive_spikes(label, time, neuron_ids):
             if str(neuron_id) is '0':
                 print str(time) + ' press right'
                 k.press_key(k.right_key)
-            # if str(neuron_id) is '1':
                 sleep(1)
                 print str(time) + ' release right'
                 k.release_key(k.right_key)
             if str(neuron_id) is '1':
                 print str(time) + ' press left'
                 k.press_key(k.left_key)
-            # if str(neuron_id) is '3':
                 sleep(1)
                 print str(time) + ' release left'
                 k.release_key(k.left_key)
             if str(neuron_id) is '2':
                 print str(time) + ' press space'
                 k.press_key(k.space)
-            # if str(neuron_id) is '5':
                 sleep(1)
                 print str(time) + ' release space'
                 k.release_key(k.space)
     except RuntimeError:
-        print 'Too fast ====================================================================='
         pass
 
 
 numberOfSpikes = 1
-
-
-def send_spike(label, sender):
-    print 'Sending spike'
-    for i in range(numberOfSpikes):
-        sender.send_spike(label, 0, send_full_keys=True)
 
 
 live_spikes_connection = sim.external_devices.SpynnakerLiveSpikesConnection(
@@ -89,23 +76,6 @@ live_spikes_connection2 = sim.external_devices.SpynnakerLiveSpikesConnection(
 
 live_spikes_connection.add_receive_callback("post_pop", receive_spikes)
 
-
-# def on_press(key):
-#     if key == Key.ctrl_l:
-#         # Stop listener
-#         return False
-#     send_spike('input1', live_spikes_connection2)
-#
-#
-# def input_thread():
-#     print 'Started thread'
-#     with Listener(
-#             on_press=on_press) as listener:
-#         listener.join()
-#
-#
-# thread = threading.Thread(target=input_thread)
-# thread.start()
 
 def send_spikes(id):
     live_spikes_connection2.send_spike('input1', id,
@@ -131,40 +101,23 @@ def send_right_press_spikes_thread():
             mn2, _, mnLoc2, _ = cv2.minMaxLoc(result2)
             MPx, MPy = mnLoc
             MPx2, MPy2 = mnLoc2
-            # MPx = MPx + 200
-
-            # # Step 2: Get the size of the template. This is the same size as the match.
-            # trows, tcols = meatboy_image.shape[:2]
-            # trows2, tcols2 = meatgirl_image.shape[:2]
-            #
-            # # Step 3: Draw the rectangle on large_image
-            # cv2.rectangle(large_image, (MPx, MPy), (MPx + tcols, MPy + trows), (0, 255, 0), 2)
-            # cv2.rectangle(large_image, (MPx2, MPy2), (MPx2 + tcols2, MPy2 + trows2), (0, 255, 0), 2)
-            # cv2.imwrite("screenCapture.png", large_image)
 
             xOffset = MPx2 - MPx
             yOffset = MPy2 - MPy
-            print str(time) + ' X offset:' + str(xOffset)
-            print str(time) + ' Y offset:' + str(yOffset)
+            # print str(time) + ' X offset:' + str(xOffset)
+            # print str(time) + ' Y offset:' + str(yOffset)
             # too much to the left
             if xOffset > 0:
-                # release left
-                # send_spikes(3)
-                # print str(time) + ' command release left'
                 # press right
                 send_spikes(0)
-                print str(time) + ' command press right'
+                # print str(time) + ' command press right'
+            # too much to the right
             else:
-                # too much to the right
-                # release right
-                # send_spikes(1)
-                # print str(time) + ' command release right'
                 # press left
                 send_spikes(1)
-                print str(time) + ' command press left'
+                # print str(time) + ' command press left'
             sleep(1)
         except AttributeError:
-            print 'Too fast ====================================================================='
             pass
 
 
@@ -187,40 +140,23 @@ def send_left_press_spikes_thread():
             mn2, _, mnLoc2, _ = cv2.minMaxLoc(result2)
             MPx, MPy = mnLoc
             MPx2, MPy2 = mnLoc2
-            # MPx = MPx - 200
-
-            # # Step 2: Get the size of the template. This is the same size as the match.
-            # trows, tcols = meatboy_image.shape[:2]
-            # trows2, tcols2 = meatgirl_image.shape[:2]
-            #
-            # # Step 3: Draw the rectangle on large_image
-            # cv2.rectangle(large_image, (MPx, MPy), (MPx + tcols, MPy + trows), (0, 255, 0), 2)
-            # cv2.rectangle(large_image, (MPx2, MPy2), (MPx2 + tcols2, MPy2 + trows2), (0, 255, 0), 2)
-            # cv2.imwrite("screenCapture.png", large_image)
 
             xOffset = MPx2 - MPx
             yOffset = MPy2 - MPy
-            print str(time) + ' X offset:' + str(xOffset)
-            print str(time) + ' Y offset:' + str(yOffset)
+            # print str(time) + ' X offset:' + str(xOffset)
+            # print str(time) + ' Y offset:' + str(yOffset)
             # too much to the left
             if xOffset > 0:
-                # release left
-                # send_spikes(3)
-                # print str(time) + ' command release left'
                 # press right
                 send_spikes(0)
-                print str(time) + ' command press right'
+                # print str(time) + ' command press right'
+            # too much to the right
             else:
-                # too much to the right
-                # release right
-                # send_spikes(1)
-                # print str(time) + ' command release right'
                 # press left
                 send_spikes(1)
-                print str(time) + ' command press left'
+                # print str(time) + ' command press left'
             sleep(1)
         except AttributeError:
-            print 'Too fast ====================================================================='
             pass
 
 
@@ -244,46 +180,27 @@ def send_jump_press_spikes_thread():
             MPx, MPy = mnLoc
             MPx2, MPy2 = mnLoc2
 
-            # # Step 2: Get the size of the template. This is the same size as the match.
-            # trows, tcols = meatboy_image.shape[:2]
-            # trows2, tcols2 = meatgirl_image.shape[:2]
-            #
-            # # Step 3: Draw the rectangle on large_image
-            # cv2.rectangle(large_image, (MPx, MPy), (MPx + tcols, MPy + trows), (0, 255, 0), 2)
-            # cv2.rectangle(large_image, (MPx2, MPy2), (MPx2 + tcols2, MPy2 + trows2), (0, 255, 0), 2)
-            # cv2.imwrite("screenCapture.png", large_image)
-
             xOffset = MPx2 - MPx
             yOffset = MPy2 - MPy
-            print str(time) + ' X offset:' + str(xOffset)
-            print str(time) + ' Y offset:' + str(yOffset)
+            # print str(time) + ' X offset:' + str(xOffset)
+            # print str(time) + ' Y offset:' + str(yOffset)
             # too much to the left
             if yOffset < 0:
                 # too much to the left
                 if xOffset > 0:
-                    # release left
-                    # send_spikes(3)
-                    # print str(time) + ' command release left'
                     # press right
                     send_spikes(0)
-                    print str(time) + ' command press right'
+                    # print str(time) + ' command press right'
+                # too much to the right
                 else:
-                    # too much to the right
-                    # release right
-                    # send_spikes(1)
-                    # print str(time) + ' command release right'
                     # press left
                     send_spikes(1)
-                    print str(time) + ' command press left'
+                    # print str(time) + ' command press left'
                 # press space
                 send_spikes(2)
-                print str(time) + ' command press space'
+                # print str(time) + ' command press space'
             sleep(2)
-            # release space
-            # send_spikes(5)
-            # print str(time) + ' command release space'
         except AttributeError:
-            print 'Too fast ====================================================================='
             pass
 
 
@@ -297,13 +214,19 @@ thread4.start()
 
 initialWeights = stdp_projection.getWeights()
 
+weightRight = []
+weightLeft = []
+weightJump = []
 
 for i in range(5):
     sim.run(3000)
-    sleep(1)
+    sleep(1.5)
     time = datetime.time(datetime.now())
     print time
-    print stdp_projection.get('weight', 'array')
+    weights = stdp_projection.getWeights()
+    weightRight.append(weights[0])
+    weightLeft.append(weights[1])
+    weightJump.append(weights[2])
 
 # neo = post_pop.get_data(variables=["spikes", "v"])
 # spikes = neo.segments[0].spiketrains
@@ -312,10 +235,13 @@ neo = post_pop.get_data(variables=["spikes", "v"])
 spikes2 = neo.segments[0].spiketrains
 v2 = neo.segments[0].filter(name='v')[0]
 
-print initialWeights
-print stdp_projection.get('weight', 'array')
-
 sim.end()
+
+plt.plot(weightRight, label='right weights')
+plt.plot(weightLeft, label='left weights')
+plt.plot(weightJump, label='jump weights')
+plt.legend()
+plt.show()
 
 plot.Figure(
     plot.Panel(v2, ylabel="Membrane potential (mV)",

@@ -115,6 +115,14 @@ weightLeft = []
 weightJumpRight = []
 weightJumpLeft = []
 
+
+def press_key(key):
+    k.press_key(key)
+    sleep(0.2)
+    k.release_key(key)
+    sleep(0.2)
+
+
 for i in range(10):
     time = datetime.time(datetime.now())
     print time
@@ -143,7 +151,6 @@ for i in range(10):
             live_spikes_connection2.add_start_callback('input1', send_jump_right_spike)
         # too much to the right
         else:
-            print 'it is too much to the right'
             live_spikes_connection2.add_start_callback('input1', send_jump_left_spike)
     else:
         # too much to the left
@@ -164,7 +171,22 @@ for i in range(10):
     weightLeft.append(weights[1])
     weightJumpRight.append(weights[2])
     weightJumpLeft.append(weights[2])
-    live_spikes_connection2._start_resume_callback['input1'].pop()
+    live_spikes_connection2.pop_start_resume_callback('input1')
+
+    press_key(k.escape_key)
+    press_key(k.down_key)
+    press_key(k.enter_key)
+    sleep(0.2)
+    press_key(k.right_key)
+    press_key(k.enter_key)
+    sleep(0.5)
+
+    press_key(k.escape_key)
+    press_key(k.down_key)
+    press_key(k.enter_key)
+    sleep(0.2)
+    press_key(k.left_key)
+    press_key(k.enter_key)
 
 
 # neo = post_pop.get_data(variables=["spikes", "v"])
@@ -179,7 +201,7 @@ sim.end()
 plt.plot(weightRight, label='right weights')
 plt.plot(weightLeft, label='left weights')
 plt.plot(weightJumpRight, label='jump right weights')
-plt.plot(weightJumpLeft, label='jump right weights')
+plt.plot(weightJumpLeft, label='jump left weights')
 
 plt.legend()
 plt.show()

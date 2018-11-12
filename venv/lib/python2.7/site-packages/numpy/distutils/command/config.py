@@ -101,12 +101,8 @@ Original exception was: %s, and the Compiler class was %s
         return ret
 
     def _compile (self, body, headers, include_dirs, lang):
-        src, obj = self._wrap_method(old_config._compile, lang,
-                                     (body, headers, include_dirs, lang))
-        # _compile in unixcompiler.py sometimes creates .d dependency files.
-        # Clean them up.
-        self.temp_files.append(obj + '.d')
-        return src, obj
+        return self._wrap_method(old_config._compile, lang,
+                                 (body, headers, include_dirs, lang))
 
     def _link (self, body,
                headers, include_dirs,
@@ -358,12 +354,12 @@ int main (void)
             list of header paths
         libraries : seq
             list of libraries to link the code snippet to
-        library_dirs : seq
+        libraru_dirs : seq
             list of library paths
         decl : dict
             for every (key, value), the declaration in the value will be
             used for function in key. If a function is not in the
-            dictionary, no declaration will be used.
+            dictionay, no declaration will be used.
         call : dict
             for every item (f, value), if the value is True, a call will be
             done to the function f.
@@ -422,51 +418,6 @@ int main (void)
     def check_gcc_variable_attribute(self, attribute):
         return check_gcc_variable_attribute(self, attribute)
 
-    def get_output(self, body, headers=None, include_dirs=None,
-                   libraries=None, library_dirs=None,
-                   lang="c", use_tee=None):
-        """Try to compile, link to an executable, and run a program
-        built from 'body' and 'headers'. Returns the exit status code
-        of the program and its output.
-        """
-        # 2008-11-16, RemoveMe
-        warnings.warn("\n+++++++++++++++++++++++++++++++++++++++++++++++++\n" \
-                      "Usage of get_output is deprecated: please do not \n" \
-                      "use it anymore, and avoid configuration checks \n" \
-                      "involving running executable on the target machine.\n" \
-                      "+++++++++++++++++++++++++++++++++++++++++++++++++\n",
-                      DeprecationWarning, stacklevel=2)
-        from distutils.ccompiler import CompileError, LinkError
-        self._check_compiler()
-        exitcode, output = 255, ''
-        try:
-            grabber = GrabStdout()
-            try:
-                src, obj, exe = self._link(body, headers, include_dirs,
-                                           libraries, library_dirs, lang)
-                grabber.restore()
-            except Exception:
-                output = grabber.data
-                grabber.restore()
-                raise
-            exe = os.path.join('.', exe)
-            exitstatus, output = exec_command(exe, execute_in='.',
-                                              use_tee=use_tee)
-            if hasattr(os, 'WEXITSTATUS'):
-                exitcode = os.WEXITSTATUS(exitstatus)
-                if os.WIFSIGNALED(exitstatus):
-                    sig = os.WTERMSIG(exitstatus)
-                    log.error('subprocess exited with signal %d' % (sig,))
-                    if sig == signal.SIGINT:
-                        # control-C
-                        raise KeyboardInterrupt
-            else:
-                exitcode = exitstatus
-            log.info("success!")
-        except (CompileError, LinkError):
-            log.info("failure.")
-        self._clean()
-        return exitcode, output
 
 class GrabStdout(object):
 

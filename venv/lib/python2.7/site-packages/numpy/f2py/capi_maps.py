@@ -65,7 +65,7 @@ c2py_map = {'double': 'float',
 c2capi_map = {'double': 'NPY_DOUBLE',
               'float': 'NPY_FLOAT',
               'long_double': 'NPY_DOUBLE',           # forced casting
-              'char': 'NPY_STRING',
+              'char': 'NPY_CHAR',
               'unsigned_char': 'NPY_UBYTE',
               'signed_char': 'NPY_BYTE',
               'short': 'NPY_SHORT',
@@ -77,7 +77,7 @@ c2capi_map = {'double': 'NPY_DOUBLE',
               'complex_float': 'NPY_CFLOAT',
               'complex_double': 'NPY_CDOUBLE',
               'complex_long_double': 'NPY_CDOUBLE',   # forced casting
-              'string': 'NPY_STRING'}
+              'string': 'NPY_CHAR'}
 
 # These new maps aren't used anyhere yet, but should be by default
 #  unless building numeric or numarray extensions.
@@ -99,7 +99,10 @@ if using_newcore:
                   'complex_float': 'NPY_CFLOAT',
                   'complex_double': 'NPY_CDOUBLE',
                   'complex_long_double': 'NPY_CDOUBLE',
-                  'string':'NPY_STRING'
+                  # f2py 2e is not ready for NPY_STRING (must set itemisize
+                  # etc)
+                  'string': 'NPY_CHAR',
+                  #'string':'NPY_STRING'
 
                   }
 c2pycode_map = {'double': 'd',
@@ -208,7 +211,7 @@ if os.path.isfile('.f2py_f2cmap'):
                 else:
                     errmess("\tIgnoring map {'%s':{'%s':'%s'}}: '%s' must be in %s\n" % (
                         k, k1, d[k][k1], d[k][k1], list(c2py_map.keys())))
-        outmess('Successfully applied user defined changes from .f2py_f2cmap\n')
+        outmess('Succesfully applied user defined changes from .f2py_f2cmap\n')
     except Exception as msg:
         errmess(
             'Failed to apply user defined changes from .f2py_f2cmap: %s. Skipping.\n' % (msg))
@@ -328,12 +331,12 @@ def getarrdims(a, var, verbose=0):
         ret['size'] = '*'.join(dim)
         try:
             ret['size'] = repr(eval(ret['size']))
-        except Exception:
+        except:
             pass
         ret['dims'] = ','.join(dim)
         ret['rank'] = repr(len(dim))
         ret['rank*[-1]'] = repr(len(dim) * [-1])[1:-1]
-        for i in range(len(dim)):  # solve dim for dependencies
+        for i in range(len(dim)):  # solve dim for dependecies
             v = []
             if dim[i] in depargs:
                 v = [dim[i]]
@@ -485,7 +488,7 @@ def getinit(a, var):
                 else:
                     v = eval(v, {}, {})
                     ret['init.r'], ret['init.i'] = str(v.real), str(v.imag)
-            except Exception:
+            except:
                 raise ValueError(
                     'getinit: expected complex number `(r,i)\' but got `%s\' as initial value of %r.' % (init, a))
             if isarray(var):

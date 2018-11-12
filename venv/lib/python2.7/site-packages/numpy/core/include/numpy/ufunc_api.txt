@@ -1,6 +1,6 @@
 
 =================
-NumPy Ufunc C-API
+Numpy Ufunc C-API
 =================
 ::
 

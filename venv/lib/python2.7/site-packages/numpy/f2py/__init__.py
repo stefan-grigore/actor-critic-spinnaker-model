@@ -22,32 +22,25 @@ def compile(source,
             verbose=True,
             source_fn=None,
             extension='.f'
-           ):
-    """
-    Build extension module from processing source with f2py.
+            ):
+    ''' Build extension module from processing source with f2py.
 
     Parameters
     ----------
     source : str
         Fortran source of module / subroutine to compile
     modulename : str, optional
-        The name of the compiled python module
-    extra_args : str, optional
-        Additional parameters passed to f2py
-    verbose : bool, optional
-        Print f2py output to screen
-    source_fn : str, optional
-        Name of the file where the fortran source is written.
-        The default is to use a temporary file with the extension
-        provided by the `extension` parameter
-    extension : {'.f', '.f90'}, optional
-        Filename extension if `source_fn` is not provided.
-        The extension tells which fortran standard is used.
-        The default is `.f`, which implies F77 standard.
+        the name of compiled python module
+    extra_args: str, optional
+        additional parameters passed to f2py
+    verbose: bool, optional
+        print f2py output to screen
+    extension: {'.f', '.f90'}, optional
+        filename extension influences the fortran compiler behavior
 
         .. versionadded:: 1.11.0
 
-    """
+    '''
     from numpy.distutils.exec_command import exec_command
     import tempfile
     if source_fn is None:
@@ -69,6 +62,6 @@ def compile(source,
         f.close()
     return status
 
-from numpy.testing._private.pytesttester import PytestTester
-test = PytestTester(__name__)
-del PytestTester
+from numpy.testing.nosetester import _numpy_tester
+test = _numpy_tester().test
+bench = _numpy_tester().bench

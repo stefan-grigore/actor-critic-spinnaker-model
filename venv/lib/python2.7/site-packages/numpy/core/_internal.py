@@ -9,18 +9,15 @@ from __future__ import division, absolute_import, print_function
 import re
 import sys
 
-from numpy.compat import basestring, unicode
+from numpy.compat import asbytes, basestring
 from .multiarray import dtype, array, ndarray
-try:
-    import ctypes
-except ImportError:
-    ctypes = None
+import ctypes
 from .numerictypes import object_
 
 if (sys.byteorder == 'little'):
-    _nbo = b'<'
+    _nbo = asbytes('<')
 else:
-    _nbo = b'>'
+    _nbo = asbytes('>')
 
 def _makenames_list(adict, align):
     allfields = []
@@ -36,6 +33,8 @@ def _makenames_list(adict, align):
         if (num < 0):
             raise ValueError("invalid offset.")
         format = dtype(obj[0], align=align)
+        if (format.itemsize == 0):
+            raise ValueError("all itemsizes must be fixed.")
         if (n > 2):
             title = obj[2]
         else:
@@ -110,10 +109,6 @@ def _array_descr(descriptor):
             num = field[1] - offset
             result.append(('', '|V%d' % num))
             offset += num
-        elif field[1] < offset:
-            raise ValueError(
-                "dtype.descr is not defined for types with overlapping or "
-                "out-of-order fields")
         if len(field) > 3:
             name = (field[2], field[3])
         else:
@@ -136,23 +131,24 @@ def _array_descr(descriptor):
 # Note that the name numpy.core._internal._reconstruct is embedded in
 # pickles of ndarrays made with NumPy before release 1.0
 # so don't remove the name here, or you'll
-# break backward compatibility.
+# break backward compatibilty.
 def _reconstruct(subtype, shape, dtype):
     return ndarray.__new__(subtype, shape, dtype)
 
 
 # format_re was originally from numarray by J. Todd Miller
 
-format_re = re.compile(br'(?P<order1>[<>|=]?)'
-                       br'(?P<repeats> *[(]?[ ,0-9L]*[)]? *)'
-                       br'(?P<order2>[<>|=]?)'
-                       br'(?P<dtype>[A-Za-z0-9.?]*(?:\[[a-zA-Z0-9,.]+\])?)')
-sep_re = re.compile(br'\s*,\s*')
-space_re = re.compile(br'\s+$')
+format_re = re.compile(asbytes(
+                           r'(?P<order1>[<>|=]?)'
+                           r'(?P<repeats> *[(]?[ ,0-9L]*[)]? *)'
+                           r'(?P<order2>[<>|=]?)'
+                           r'(?P<dtype>[A-Za-z0-9.?]*(?:\[[a-zA-Z0-9,.]+\])?)'))
+sep_re = re.compile(asbytes(r'\s*,\s*'))
+space_re = re.compile(asbytes(r'\s+$'))
 
 # astr is a string (perhaps comma separated)
 
-_convorder = {b'=': _nbo}
+_convorder = {asbytes('='): _nbo}
 
 def _commastring(astr):
     startindex = 0
@@ -177,9 +173,9 @@ def _commastring(astr):
                         (len(result)+1, astr))
                 startindex = mo.end()
 
-        if order2 == b'':
+        if order2 == asbytes(''):
             order = order1
-        elif order1 == b'':
+        elif order1 == asbytes(''):
             order = order2
         else:
             order1 = _convorder.get(order1, order1)
@@ -190,10 +186,10 @@ def _commastring(astr):
                     (order1, order2))
             order = order1
 
-        if order in [b'|', b'=', _nbo]:
-            order = b''
+        if order in [asbytes('|'), asbytes('='), _nbo]:
+            order = asbytes('')
         dtype = order + dtype
-        if (repeats == b''):
+        if (repeats == asbytes('')):
             newitem = dtype
         else:
             newitem = (dtype, eval(repeats))
@@ -201,35 +197,19 @@ def _commastring(astr):
 
     return result
 
-class dummy_ctype(object):
-    def __init__(self, cls):
-        self._cls = cls
-    def __mul__(self, other):
-        return self
-    def __call__(self, *other):
-        return self._cls(other)
-    def __eq__(self, other):
-        return self._cls == other._cls
-    def __ne__(self, other):
-        return self._cls != other._cls
-
 def _getintp_ctype():
     val = _getintp_ctype.cache
     if val is not None:
         return val
-    if ctypes is None:
-        import numpy as np
-        val = dummy_ctype(np.intp)
+    char = dtype('p').char
+    if (char == 'i'):
+        val = ctypes.c_int
+    elif char == 'l':
+        val = ctypes.c_long
+    elif char == 'q':
+        val = ctypes.c_longlong
     else:
-        char = dtype('p').char
-        if (char == 'i'):
-            val = ctypes.c_int
-        elif char == 'l':
-            val = ctypes.c_long
-        elif char == 'q':
-            val = ctypes.c_longlong
-        else:
-            val = ctypes.c_long
+        val = ctypes.c_long
     _getintp_ctype.cache = val
     return val
 _getintp_ctype.cache = None
@@ -245,9 +225,9 @@ class _missing_ctypes(object):
 
 class _ctypes(object):
     def __init__(self, array, ptr=None):
-        if ctypes:
+        try:
             self._ctypes = ctypes
-        else:
+        except ImportError:
             self._ctypes = _missing_ctypes()
         self._arr = array
         self._data = ptr
@@ -273,10 +253,14 @@ class _ctypes(object):
         return self._data
 
     def get_shape(self):
-        return self.shape_as(_getintp_ctype())
+        if self._zerod:
+            return None
+        return (_getintp_ctype()*self._arr.ndim)(*self._arr.shape)
 
     def get_strides(self):
-        return self.strides_as(_getintp_ctype())
+        if self._zerod:
+            return None
+        return (_getintp_ctype()*self._arr.ndim)(*self._arr.strides)
 
     def get_as_parameter(self):
         return self._ctypes.c_void_p(self._data)
@@ -287,26 +271,20 @@ class _ctypes(object):
     _as_parameter_ = property(get_as_parameter, None, doc="_as parameter_")
 
 
+# Given a datatype and an order object
+#  return a new names tuple
+#  with the order indicated
 def _newnames(datatype, order):
-    """
-    Given a datatype and an order object, return a new names tuple, with the
-    order indicated
-    """
     oldnames = datatype.names
     nameslist = list(oldnames)
-    if isinstance(order, (str, unicode)):
+    if isinstance(order, str):
         order = [order]
-    seen = set()
     if isinstance(order, (list, tuple)):
         for name in order:
             try:
                 nameslist.remove(name)
             except ValueError:
-                if name in seen:
-                    raise ValueError("duplicate field name: %s" % (name,))
-                else:
-                    raise ValueError("unknown field name: %s" % (name,))
-            seen.add(name)
+                raise ValueError("unknown field name: %s" % (name,))
         return tuple(list(order) + nameslist)
     raise ValueError("unsupported order value: %s" % (order,))
 
@@ -390,11 +368,10 @@ def _view_is_safe(oldtype, newtype):
     return
 
 # Given a string containing a PEP 3118 format specifier,
-# construct a NumPy dtype
+# construct a Numpy dtype
 
 _pep3118_native_map = {
     '?': '?',
-    'c': 'S1',
     'b': 'b',
     'B': 'B',
     'h': 'h',
@@ -421,7 +398,6 @@ _pep3118_native_typechars = ''.join(_pep3118_native_map.keys())
 
 _pep3118_standard_map = {
     '?': '?',
-    'c': 'S1',
     'b': 'b',
     'B': 'B',
     'h': 'i2',
@@ -444,83 +420,51 @@ _pep3118_standard_map = {
 }
 _pep3118_standard_typechars = ''.join(_pep3118_standard_map.keys())
 
-def _dtype_from_pep3118(spec):
-
-    class Stream(object):
-        def __init__(self, s):
-            self.s = s
-            self.byteorder = '@'
-
-        def advance(self, n):
-            res = self.s[:n]
-            self.s = self.s[n:]
-            return res
-
-        def consume(self, c):
-            if self.s[:len(c)] == c:
-                self.advance(len(c))
-                return True
-            return False
-
-        def consume_until(self, c):
-            if callable(c):
-                i = 0
-                while i < len(self.s) and not c(self.s[i]):
-                    i = i + 1
-                return self.advance(i)
-            else:
-                i = self.s.index(c)
-                res = self.advance(i)
-                self.advance(len(c))
-                return res
-
-        @property
-        def next(self):
-            return self.s[0]
-
-        def __bool__(self):
-            return bool(self.s)
-        __nonzero__ = __bool__
-
-    stream = Stream(spec)
-
-    dtype, align = __dtype_from_pep3118(stream, is_subdtype=False)
-    return dtype
-
-def __dtype_from_pep3118(stream, is_subdtype):
-    field_spec = dict(
-        names=[],
-        formats=[],
-        offsets=[],
-        itemsize=0
-    )
+def _dtype_from_pep3118(spec, byteorder='@', is_subdtype=False):
+    fields = {}
     offset = 0
+    explicit_name = False
+    this_explicit_name = False
     common_alignment = 1
     is_padding = False
 
+    dummy_name_index = [0]
+
+    def next_dummy_name():
+        dummy_name_index[0] += 1
+
+    def get_dummy_name():
+        while True:
+            name = 'f%d' % dummy_name_index[0]
+            if name not in fields:
+                return name
+            next_dummy_name()
+
     # Parse spec
-    while stream:
+    while spec:
         value = None
 
         # End of structure, bail out to upper level
-        if stream.consume('}'):
+        if spec[0] == '}':
+            spec = spec[1:]
             break
 
         # Sub-arrays (1)
         shape = None
-        if stream.consume('('):
-            shape = stream.consume_until(')')
-            shape = tuple(map(int, shape.split(',')))
+        if spec[0] == '(':
+            j = spec.index(')')
+            shape = tuple(map(int, spec[1:j].split(',')))
+            spec = spec[j+1:]
 
         # Byte order
-        if stream.next in ('@', '=', '<', '>', '^', '!'):
-            byteorder = stream.advance(1)
+        if spec[0] in ('@', '=', '<', '>', '^', '!'):
+            byteorder = spec[0]
             if byteorder == '!':
                 byteorder = '>'
-            stream.byteorder = byteorder
+            spec = spec[1:]
 
         # Byte order characters also control native vs. standard type sizes
-        if stream.byteorder in ('@', '^'):
+        if byteorder in ('@', '^'):
             type_map = _pep3118_native_map
             type_map_chars = _pep3118_native_typechars
         else:
@@ -528,35 +472,39 @@ def __dtype_from_pep3118(stream, is_subdtype):
             type_map_chars = _pep3118_standard_typechars
 
         # Item sizes
-        itemsize_str = stream.consume_until(lambda c: not c.isdigit())
-        if itemsize_str:
-            itemsize = int(itemsize_str)
-        else:
-            itemsize = 1
+        itemsize = 1
+        if spec[0].isdigit():
+            j = 1
+            for j in range(1, len(spec)):
+                if not spec[j].isdigit():
+                    break
+            itemsize = int(spec[:j])
+            spec = spec[j:]
 
         # Data types
         is_padding = False
 
-        if stream.consume('T{'):
-            value, align = __dtype_from_pep3118(
-                stream, is_subdtype=True)
-        elif stream.next in type_map_chars:
-            if stream.next == 'Z':
-                typechar = stream.advance(2)
+        if spec[:2] == 'T{':
+            value, spec, align, next_byteorder = _dtype_from_pep3118(
+                spec[2:], byteorder=byteorder, is_subdtype=True)
+        elif spec[0] in type_map_chars:
+            next_byteorder = byteorder
+            if spec[0] == 'Z':
+                j = 2
             else:
-                typechar = stream.advance(1)
-
+                j = 1
+            typechar = spec[:j]
+            spec = spec[j:]
             is_padding = (typechar == 'x')
             dtypechar = type_map[typechar]
             if dtypechar in 'USV':
                 dtypechar += '%d' % itemsize
                 itemsize = 1
-            numpy_byteorder = {'@': '=', '^': '='}.get(
-                stream.byteorder, stream.byteorder)
+            numpy_byteorder = {'@': '=', '^': '='}.get(byteorder, byteorder)
             value = dtype(numpy_byteorder + dtypechar)
             align = value.alignment
         else:
-            raise ValueError("Unknown PEP 3118 data type specifier %r" % stream.s)
+            raise ValueError("Unknown PEP 3118 data type specifier %r" % spec)
 
         #
         # Native alignment may require padding
@@ -565,7 +513,7 @@ def __dtype_from_pep3118(stream, is_subdtype):
         # that the start of the array is *already* aligned.
         #
         extra_offset = 0
-        if stream.byteorder == '@':
+        if byteorder == '@':
             start_padding = (-offset) % align
             intra_padding = (-value.itemsize) % align
 
@@ -581,7 +529,8 @@ def __dtype_from_pep3118(stream, is_subdtype):
                     extra_offset += intra_padding
 
             # Update common alignment
-            common_alignment = _lcm(align, common_alignment)
+            common_alignment = (align*common_alignment
+                                / _gcd(align, common_alignment))
 
         # Convert itemsize to sub-array
         if itemsize != 1:
@@ -592,77 +541,79 @@ def __dtype_from_pep3118(stream, is_subdtype):
             value = dtype((value, shape))
 
         # Field name
-        if stream.consume(':'):
-            name = stream.consume_until(':')
+        this_explicit_name = False
+        if spec and spec.startswith(':'):
+            i = spec[1:].index(':') + 1
+            name = spec[1:i]
+            spec = spec[i+1:]
+            explicit_name = True
+            this_explicit_name = True
         else:
-            name = None
+            name = get_dummy_name()
 
-        if not (is_padding and name is None):
-            if name is not None and name in field_spec['names']:
+        if not is_padding or this_explicit_name:
+            if name in fields:
                 raise RuntimeError("Duplicate field name '%s' in PEP3118 format"
                                    % name)
-            field_spec['names'].append(name)
-            field_spec['formats'].append(value)
-            field_spec['offsets'].append(offset)
+            fields[name] = (value, offset)
+            if not this_explicit_name:
+                next_dummy_name()
+
+        byteorder = next_byteorder
 
         offset += value.itemsize
         offset += extra_offset
 
-        field_spec['itemsize'] = offset
-
-    # extra final padding for aligned types
-    if stream.byteorder == '@':
-        field_spec['itemsize'] += (-offset) % common_alignment
-
-    # Check if this was a simple 1-item type, and unwrap it
-    if (field_spec['names'] == [None]
-            and field_spec['offsets'][0] == 0
-            and field_spec['itemsize'] == field_spec['formats'][0].itemsize
-            and not is_subdtype):
-        ret = field_spec['formats'][0]
+    # Check if this was a simple 1-item type
+    if (len(fields) == 1 and not explicit_name and
+            fields['f0'][1] == 0 and not is_subdtype):
+        ret = fields['f0'][0]
     else:
-        _fix_names(field_spec)
-        ret = dtype(field_spec)
+        ret = dtype(fields)
+
+    # Trailing padding must be explicitly added
+    padding = offset - ret.itemsize
+    if byteorder == '@':
+        padding += (-offset) % common_alignment
+    if is_padding and not this_explicit_name:
+        ret = _add_trailing_padding(ret, padding)
 
     # Finished
-    return ret, common_alignment
-
-def _fix_names(field_spec):
-    """ Replace names which are None with the next unused f%d name """
-    names = field_spec['names']
-    for i, name in enumerate(names):
-        if name is not None:
-            continue
-
-        j = 0
-        while True:
-            name = 'f{}'.format(j)
-            if name not in names:
-                break
-            j = j + 1
-        names[i] = name
+    if is_subdtype:
+        return ret, spec, common_alignment, byteorder
+    else:
+        return ret
 
 def _add_trailing_padding(value, padding):
     """Inject the specified number of padding bytes at the end of a dtype"""
     if value.fields is None:
-        field_spec = dict(
-            names=['f0'],
-            formats=[value],
-            offsets=[0],
-            itemsize=value.itemsize
-        )
+        vfields = {'f0': (value, 0)}
     else:
-        fields = value.fields
-        names = value.names
-        field_spec = dict(
-            names=names,
-            formats=[fields[name][0] for name in names],
-            offsets=[fields[name][1] for name in names],
-            itemsize=value.itemsize
-        )
+        vfields = dict(value.fields)
 
-    field_spec['itemsize'] += padding
-    return dtype(field_spec)
+    if (value.names and value.names[-1] == '' and
+           value[''].char == 'V'):
+        # A trailing padding field is already present
+        vfields[''] = ('V%d' % (vfields[''][0].itemsize + padding),
+                       vfields[''][1])
+        value = dtype(vfields)
+    else:
+        # Get a free name for the padding field
+        j = 0
+        while True:
+            name = 'pad%d' % j
+            if name not in vfields:
+                vfields[name] = ('V%d' % padding, value.itemsize)
+                break
+            j += 1
+
+        value = dtype(vfields)
+        if '' not in vfields:
+            # Strip out the name of the padding field
+            names = list(value.names)
+            names[-1] = ''
+            value.names = tuple(names)
+    return value
 
 def _prod(a):
     p = 1
@@ -676,96 +627,6 @@ def _gcd(a, b):
         a, b = b, a % b
     return a
 
-def _lcm(a, b):
-    return a // _gcd(a, b) * b
-
 # Exception used in shares_memory()
 class TooHardError(RuntimeError):
     pass
-
-class AxisError(ValueError, IndexError):
-    """ Axis supplied was invalid. """
-    def __init__(self, axis, ndim=None, msg_prefix=None):
-        # single-argument form just delegates to base class
-        if ndim is None and msg_prefix is None:
-            msg = axis
-
-        # do the string formatting here, to save work in the C code
-        else:
-            msg = ("axis {} is out of bounds for array of dimension {}"
-                   .format(axis, ndim))
-            if msg_prefix is not None:
-                msg = "{}: {}".format(msg_prefix, msg)
-
-        super(AxisError, self).__init__(msg)
-
-
-def array_ufunc_errmsg_formatter(dummy, ufunc, method, *inputs, **kwargs):
-    """ Format the error message for when __array_ufunc__ gives up. """
-    args_string = ', '.join(['{!r}'.format(arg) for arg in inputs] +
-                            ['{}={!r}'.format(k, v)
-                             for k, v in kwargs.items()])
-    args = inputs + kwargs.get('out', ())
-    types_string = ', '.join(repr(type(arg).__name__) for arg in args)
-    return ('operand type(s) all returned NotImplemented from '
-            '__array_ufunc__({!r}, {!r}, {}): {}'
-            .format(ufunc, method, args_string, types_string))
-
-
-def _ufunc_doc_signature_formatter(ufunc):
-    """
-    Builds a signature string which resembles PEP 457
-
-    This is used to construct the first line of the docstring
-    """
-
-    # input arguments are simple
-    if ufunc.nin == 1:
-        in_args = 'x'
-    else:
-        in_args = ', '.join('x{}'.format(i+1) for i in range(ufunc.nin))
-
-    # output arguments are both keyword or positional
-    if ufunc.nout == 0:
-        out_args = ', /, out=()'
-    elif ufunc.nout == 1:
-        out_args = ', /, out=None'
-    else:
-        out_args = '[, {positional}], / [, out={default}]'.format(
-            positional=', '.join(
-                'out{}'.format(i+1) for i in range(ufunc.nout)),
-            default=repr((None,)*ufunc.nout)
-        )
-
-    # keyword only args depend on whether this is a gufunc
-    kwargs = (
-        ", casting='same_kind'"
-        ", order='K'"
-        ", dtype=None"
-        ", subok=True"
-        "[, signature"
-        ", extobj]"
-    )
-    if ufunc.signature is None:
-        kwargs = ", where=True" + kwargs
-
-    # join all the parts together
-    return '{name}({in_args}{out_args}, *{kwargs})'.format(
-        name=ufunc.__name__,
-        in_args=in_args,
-        out_args=out_args,
-        kwargs=kwargs
-    )
-
-
-def _is_from_ctypes(obj):
-    # determine if an object comes from ctypes, in order to work around
-    # a bug in the buffer protocol for those objects, bpo-10746
-    try:
-        # ctypes class are new-style, so have an __mro__. This probably fails
-        # for ctypes classes with multiple inheritance.
-        ctype_base = type(obj).__mro__[-2]
-        # right now, they're part of the _ctypes module
-        return 'ctypes' in ctype_base.__module__
-    except Exception:
-        return False

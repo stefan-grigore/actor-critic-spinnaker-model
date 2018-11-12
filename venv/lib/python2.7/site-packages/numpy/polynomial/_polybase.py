@@ -64,8 +64,8 @@ class ABCPolyBase(object):
     # Not hashable
     __hash__ = None
 
-    # Opt out of numpy ufuncs and Python ops with ndarray subclasses.
-    __array_ufunc__ = None
+    # Don't let participate in array operations. Value doesn't matter.
+    __array_priority__ = 1000
 
     # Limit runaway size. T_n^m has degree n*m
     maxpower = 100
@@ -223,13 +223,13 @@ class ABCPolyBase(object):
 
         Returns
         -------
-        coef
+        coef:
             The coefficients of`other` if it is a compatible instance,
             of ABCPolyBase, otherwise `other`.
 
         Raises
         ------
-        TypeError
+        TypeError:
             When `other` is an incompatible instance of ABCPolyBase.
 
         """
@@ -260,7 +260,7 @@ class ABCPolyBase(object):
             self.window = window
 
     def __repr__(self):
-        format = "%s(%s, domain=%s, window=%s)"
+        format = "%s(%s, %s, %s)"
         coef = repr(self.coef)[6:-1]
         domain = repr(self.domain)[6:-1]
         window = repr(self.window)[6:-1]
@@ -307,26 +307,32 @@ class ABCPolyBase(object):
         return self
 
     def __add__(self, other):
-        othercoef = self._get_coefficients(other)
         try:
+            othercoef = self._get_coefficients(other)
             coef = self._add(self.coef, othercoef)
-        except Exception:
+        except TypeError as e:
+            raise e
+        except:
             return NotImplemented
         return self.__class__(coef, self.domain, self.window)
 
     def __sub__(self, other):
-        othercoef = self._get_coefficients(other)
         try:
+            othercoef = self._get_coefficients(other)
             coef = self._sub(self.coef, othercoef)
-        except Exception:
+        except TypeError as e:
+            raise e
+        except:
             return NotImplemented
         return self.__class__(coef, self.domain, self.window)
 
     def __mul__(self, other):
-        othercoef = self._get_coefficients(other)
         try:
+            othercoef = self._get_coefficients(other)
             coef = self._mul(self.coef, othercoef)
-        except Exception:
+        except TypeError as e:
+            raise e
+        except:
             return NotImplemented
         return self.__class__(coef, self.domain, self.window)
 
@@ -356,12 +362,12 @@ class ABCPolyBase(object):
         return res[1]
 
     def __divmod__(self, other):
-        othercoef = self._get_coefficients(other)
         try:
+            othercoef = self._get_coefficients(other)
             quo, rem = self._div(self.coef, othercoef)
-        except ZeroDivisionError as e:
+        except (TypeError, ZeroDivisionError) as e:
             raise e
-        except Exception:
+        except:
             return NotImplemented
         quo = self.__class__(quo, self.domain, self.window)
         rem = self.__class__(rem, self.domain, self.window)
@@ -375,21 +381,21 @@ class ABCPolyBase(object):
     def __radd__(self, other):
         try:
             coef = self._add(other, self.coef)
-        except Exception:
+        except:
             return NotImplemented
         return self.__class__(coef, self.domain, self.window)
 
     def __rsub__(self, other):
         try:
             coef = self._sub(other, self.coef)
-        except Exception:
+        except:
             return NotImplemented
         return self.__class__(coef, self.domain, self.window)
 
     def __rmul__(self, other):
         try:
             coef = self._mul(other, self.coef)
-        except Exception:
+        except:
             return NotImplemented
         return self.__class__(coef, self.domain, self.window)
 
@@ -419,7 +425,7 @@ class ABCPolyBase(object):
             quo, rem = self._div(other, self.coef)
         except ZeroDivisionError as e:
             raise e
-        except Exception:
+        except:
             return NotImplemented
         quo = self.__class__(quo, self.domain, self.window)
         rem = self.__class__(rem, self.domain, self.window)
@@ -736,7 +742,7 @@ class ABCPolyBase(object):
         deg : int or 1-D array_like
             Degree(s) of the fitting polynomials. If `deg` is a single integer
             all terms up to and including the `deg`'th term are included in the
-            fit. For NumPy versions >= 1.11.0 a list of integers specifying the
+            fit. For Numpy versions >= 1.11 a list of integers specifying the
             degrees of the terms to include may be used instead.
         domain : {None, [beg, end], []}, optional
             Domain to use for the returned series. If ``None``,

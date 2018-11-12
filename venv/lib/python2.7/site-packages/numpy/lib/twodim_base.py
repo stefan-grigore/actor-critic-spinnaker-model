@@ -4,15 +4,14 @@
 from __future__ import division, absolute_import, print_function
 
 from numpy.core.numeric import (
-    absolute, asanyarray, arange, zeros, greater_equal, multiply, ones,
-    asarray, where, int8, int16, int32, int64, empty, promote_types, diagonal,
-    nonzero
+    asanyarray, arange, zeros, greater_equal, multiply, ones, asarray,
+    where, int8, int16, int32, int64, empty, promote_types, diagonal,
     )
-from numpy.core import iinfo, transpose
+from numpy.core import iinfo
 
 
 __all__ = [
-    'diag', 'diagflat', 'eye', 'fliplr', 'flipud', 'tri', 'triu',
+    'diag', 'diagflat', 'eye', 'fliplr', 'flipud', 'rot90', 'tri', 'triu',
     'tril', 'vander', 'histogram2d', 'mask_indices', 'tril_indices',
     'tril_indices_from', 'triu_indices', 'triu_indices_from', ]
 
@@ -58,7 +57,7 @@ def fliplr(m):
 
     Notes
     -----
-    Equivalent to m[:,::-1]. Requires the array to be at least 2-D.
+    Equivalent to A[:,::-1]. Requires the array to be at least 2-D.
 
     Examples
     --------
@@ -73,7 +72,7 @@ def fliplr(m):
            [ 3.,  0.,  0.]])
 
     >>> A = np.random.randn(2,3,5)
-    >>> np.all(np.fliplr(A) == A[:,::-1,...])
+    >>> np.all(np.fliplr(A)==A[:,::-1,...])
     True
 
     """
@@ -108,7 +107,7 @@ def flipud(m):
 
     Notes
     -----
-    Equivalent to ``m[::-1,...]``.
+    Equivalent to ``A[::-1,...]``.
     Does not require the array to be two-dimensional.
 
     Examples
@@ -124,7 +123,7 @@ def flipud(m):
            [ 1.,  0.,  0.]])
 
     >>> A = np.random.randn(2,3,5)
-    >>> np.all(np.flipud(A) == A[::-1,...])
+    >>> np.all(np.flipud(A)==A[::-1,...])
     True
 
     >>> np.flipud([1,2])
@@ -137,7 +136,60 @@ def flipud(m):
     return m[::-1, ...]
 
 
-def eye(N, M=None, k=0, dtype=float, order='C'):
+def rot90(m, k=1):
+    """
+    Rotate an array by 90 degrees in the counter-clockwise direction.
+
+    The first two dimensions are rotated; therefore, the array must be at
+    least 2-D.
+
+    Parameters
+    ----------
+    m : array_like
+        Array of two or more dimensions.
+    k : integer
+        Number of times the array is rotated by 90 degrees.
+
+    Returns
+    -------
+    y : ndarray
+        Rotated array.
+
+    See Also
+    --------
+    fliplr : Flip an array horizontally.
+    flipud : Flip an array vertically.
+
+    Examples
+    --------
+    >>> m = np.array([[1,2],[3,4]], int)
+    >>> m
+    array([[1, 2],
+           [3, 4]])
+    >>> np.rot90(m)
+    array([[2, 4],
+           [1, 3]])
+    >>> np.rot90(m, 2)
+    array([[4, 3],
+           [2, 1]])
+
+    """
+    m = asanyarray(m)
+    if m.ndim < 2:
+        raise ValueError("Input must >= 2-d.")
+    k = k % 4
+    if k == 0:
+        return m
+    elif k == 1:
+        return fliplr(m).swapaxes(0, 1)
+    elif k == 2:
+        return fliplr(flipud(m))
+    else:
+        # k == 3
+        return fliplr(m.swapaxes(0, 1))
+
+
+def eye(N, M=None, k=0, dtype=float):
     """
     Return a 2-D array with ones on the diagonal and zeros elsewhere.
 
@@ -153,11 +205,6 @@ def eye(N, M=None, k=0, dtype=float, order='C'):
       to a lower diagonal.
     dtype : data-type, optional
       Data-type of the returned array.
-    order : {'C', 'F'}, optional
-        Whether the output should be stored in row-major (C-style) or
-        column-major (Fortran-style) order in memory.
-
-        .. versionadded:: 1.14.0
 
     Returns
     -------
@@ -183,7 +230,7 @@ def eye(N, M=None, k=0, dtype=float, order='C'):
     """
     if M is None:
         M = N
-    m = zeros((N, M), dtype=dtype, order=order)
+    m = zeros((N, M), dtype=dtype)
     if k >= M:
         return m
     if k >= 0:
@@ -530,8 +577,7 @@ def vander(x, N=None, increasing=False):
     return v
 
 
-def histogram2d(x, y, bins=10, range=None, normed=None, weights=None,
-                density=None):
+def histogram2d(x, y, bins=10, range=None, normed=False, weights=None):
     """
     Compute the bi-dimensional histogram of two data samples.
 
@@ -561,14 +607,9 @@ def histogram2d(x, y, bins=10, range=None, normed=None, weights=None,
         (if not specified explicitly in the `bins` parameters):
         ``[[xmin, xmax], [ymin, ymax]]``. All values outside of this range
         will be considered outliers and not tallied in the histogram.
-    density : bool, optional
-        If False, the default, returns the number of samples in each bin.
-        If True, returns the probability *density* function at the bin,
-        ``bin_count / sample_count / bin_area``.
     normed : bool, optional
-        An alias for the density argument that behaves identically. To avoid
-        confusion with the broken normed argument to `histogram`, `density`
-        should be preferred.
+        If False, returns the number of samples in each bin. If True,
+        returns the bin density ``bin_count / sample_count / bin_area``.
     weights : array_like, shape(N,), optional
         An array of values ``w_i`` weighing each sample ``(x_i, y_i)``.
         Weights are normalized to 1 if `normed` is True. If `normed` is
@@ -581,9 +622,9 @@ def histogram2d(x, y, bins=10, range=None, normed=None, weights=None,
         The bi-dimensional histogram of samples `x` and `y`. Values in `x`
         are histogrammed along the first dimension and values in `y` are
         histogrammed along the second dimension.
-    xedges : ndarray, shape(nx+1,)
+    xedges : ndarray, shape(nx,)
         The bin edges along the first dimension.
-    yedges : ndarray, shape(ny+1,)
+    yedges : ndarray, shape(ny,)
         The bin edges along the second dimension.
 
     See Also
@@ -608,43 +649,55 @@ def histogram2d(x, y, bins=10, range=None, normed=None, weights=None,
     >>> import matplotlib as mpl
     >>> import matplotlib.pyplot as plt
 
-    Construct a 2-D histogram with variable bin width. First define the bin
+    Construct a 2D-histogram with variable bin width. First define the bin
     edges:
 
-    >>> xedges = [0, 1, 3, 5]
+    >>> xedges = [0, 1, 1.5, 3, 5]
     >>> yedges = [0, 2, 3, 4, 6]
 
     Next we create a histogram H with random bin content:
 
-    >>> x = np.random.normal(2, 1, 100)
+    >>> x = np.random.normal(3, 1, 100)
     >>> y = np.random.normal(1, 1, 100)
-    >>> H, xedges, yedges = np.histogram2d(x, y, bins=(xedges, yedges))
-    >>> H = H.T  # Let each row list bins with common y range.
+    >>> H, xedges, yedges = np.histogram2d(y, x, bins=(xedges, yedges))
 
-    :func:`imshow <matplotlib.pyplot.imshow>` can only display square bins:
+    Or we fill the histogram H with a determined bin content:
+
+    >>> H = np.ones((4, 4)).cumsum().reshape(4, 4)
+    >>> print(H[::-1])  # This shows the bin content in the order as plotted
+    [[ 13.  14.  15.  16.]
+     [  9.  10.  11.  12.]
+     [  5.   6.   7.   8.]
+     [  1.   2.   3.   4.]]
+
+    Imshow can only do an equidistant representation of bins:
 
     >>> fig = plt.figure(figsize=(7, 3))
-    >>> ax = fig.add_subplot(131, title='imshow: square bins')
-    >>> plt.imshow(H, interpolation='nearest', origin='low',
-    ...         extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
+    >>> ax = fig.add_subplot(131)
+    >>> ax.set_title('imshow: equidistant')
+    >>> im = plt.imshow(H, interpolation='nearest', origin='low',
+                    extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
 
-    :func:`pcolormesh <matplotlib.pyplot.pcolormesh>` can display actual edges:
+    pcolormesh can display exact bin edges:
 
-    >>> ax = fig.add_subplot(132, title='pcolormesh: actual edges',
-    ...         aspect='equal')
+    >>> ax = fig.add_subplot(132)
+    >>> ax.set_title('pcolormesh: exact bin edges')
     >>> X, Y = np.meshgrid(xedges, yedges)
     >>> ax.pcolormesh(X, Y, H)
+    >>> ax.set_aspect('equal')
 
-    :class:`NonUniformImage <matplotlib.image.NonUniformImage>` can be used to
-    display actual bin edges with interpolation:
+    NonUniformImage displays exact bin edges with interpolation:
 
-    >>> ax = fig.add_subplot(133, title='NonUniformImage: interpolated',
-    ...         aspect='equal', xlim=xedges[[0, -1]], ylim=yedges[[0, -1]])
+    >>> ax = fig.add_subplot(133)
+    >>> ax.set_title('NonUniformImage: interpolated')
     >>> im = mpl.image.NonUniformImage(ax, interpolation='bilinear')
-    >>> xcenters = (xedges[:-1] + xedges[1:]) / 2
-    >>> ycenters = (yedges[:-1] + yedges[1:]) / 2
+    >>> xcenters = xedges[:-1] + 0.5 * (xedges[1:] - xedges[:-1])
+    >>> ycenters = yedges[:-1] + 0.5 * (yedges[1:] - yedges[:-1])
     >>> im.set_data(xcenters, ycenters, H)
     >>> ax.images.append(im)
+    >>> ax.set_xlim(xedges[0], xedges[-1])
+    >>> ax.set_ylim(yedges[0], yedges[-1])
+    >>> ax.set_aspect('equal')
     >>> plt.show()
 
     """
@@ -656,9 +709,9 @@ def histogram2d(x, y, bins=10, range=None, normed=None, weights=None,
         N = 1
 
     if N != 1 and N != 2:
-        xedges = yedges = asarray(bins)
+        xedges = yedges = asarray(bins, float)
         bins = [xedges, yedges]
-    hist, edges = histogramdd([x, y], bins, range, normed, weights, density)
+    hist, edges = histogramdd([x, y], bins, range, normed, weights)
     return hist, edges[0], edges[1]
 
 
@@ -729,7 +782,7 @@ def mask_indices(n, mask_func, k=0):
     """
     m = ones((n, n), int)
     a = mask_func(m, k)
-    return nonzero(a != 0)
+    return where(a != 0)
 
 
 def tril_indices(n, k=0, m=None):
@@ -809,7 +862,7 @@ def tril_indices(n, k=0, m=None):
            [-10, -10, -10, -10]])
 
     """
-    return nonzero(tri(n, m, k=k, dtype=bool))
+    return where(tri(n, m, k=k, dtype=bool))
 
 
 def tril_indices_from(arr, k=0):
@@ -919,7 +972,7 @@ def triu_indices(n, k=0, m=None):
            [ 12,  13,  14,  -1]])
 
     """
-    return nonzero(~tri(n, m, k=k-1, dtype=bool))
+    return where(~tri(n, m, k=k-1, dtype=bool))
 
 
 def triu_indices_from(arr, k=0):

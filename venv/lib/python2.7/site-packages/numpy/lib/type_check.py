@@ -9,7 +9,8 @@ __all__ = ['iscomplexobj', 'isrealobj', 'imag', 'iscomplex',
            'common_type']
 
 import numpy.core.numeric as _nx
-from numpy.core.numeric import asarray, asanyarray, array, isnan, zeros
+from numpy.core.numeric import asarray, asanyarray, array, isnan, \
+                obj2sctype, zeros
 from .ufunclike import isneginf, isposinf
 
 _typecodes_by_elsize = 'GDFgdfQqLlIiHhBb?'
@@ -98,14 +99,14 @@ def asfarray(a, dtype=_nx.float_):
     array([ 2.,  3.])
 
     """
-    if not _nx.issubdtype(dtype, _nx.inexact):
+    dtype = _nx.obj2sctype(dtype)
+    if not issubclass(dtype, _nx.inexact):
         dtype = _nx.float_
     return asarray(a, dtype=dtype)
 
-
 def real(val):
     """
-    Return the real part of the complex argument.
+    Return the real part of the elements of the array.
 
     Parameters
     ----------
@@ -114,10 +115,9 @@ def real(val):
 
     Returns
     -------
-    out : ndarray or scalar
-        The real component of the complex argument. If `val` is real, the type
-        of `val` is used for the output.  If `val` has complex elements, the
-        returned type is float.
+    out : ndarray
+        Output array. If `val` is real, the type of `val` is used for the
+        output.  If `val` has complex elements, the returned type is float.
 
     See Also
     --------
@@ -134,19 +134,13 @@ def real(val):
     >>> a.real = np.array([9, 8, 7])
     >>> a
     array([ 9.+2.j,  8.+4.j,  7.+6.j])
-    >>> np.real(1 + 1j)
-    1.0
 
     """
-    try:
-        return val.real
-    except AttributeError:
-        return asanyarray(val).real
-
+    return asanyarray(val).real
 
 def imag(val):
     """
-    Return the imaginary part of the complex argument.
+    Return the imaginary part of the elements of the array.
 
     Parameters
     ----------
@@ -155,10 +149,9 @@ def imag(val):
 
     Returns
     -------
-    out : ndarray or scalar
-        The imaginary component of the complex argument. If `val` is real,
-        the type of `val` is used for the output.  If `val` has complex
-        elements, the returned type is float.
+    out : ndarray
+        Output array. If `val` is real, the type of `val` is used for the
+        output.  If `val` has complex elements, the returned type is float.
 
     See Also
     --------
@@ -172,15 +165,9 @@ def imag(val):
     >>> a.imag = np.array([8, 10, 12])
     >>> a
     array([ 1. +8.j,  3.+10.j,  5.+12.j])
-    >>> np.imag(1 + 1j)
-    1.0
 
     """
-    try:
-        return val.imag
-    except AttributeError:
-        return asanyarray(val).imag
-
+    return asanyarray(val).imag
 
 def iscomplex(x):
     """
@@ -208,14 +195,14 @@ def iscomplex(x):
     Examples
     --------
     >>> np.iscomplex([1+1j, 1+0j, 4.5, 3, 2, 2j])
-    array([ True, False, False, False, False,  True])
+    array([ True, False, False, False, False,  True], dtype=bool)
 
     """
     ax = asanyarray(x)
     if issubclass(ax.dtype.type, _nx.complexfloating):
         return ax.imag != 0
     res = zeros(ax.shape, bool)
-    return +res  # convert to array-scalar if needed
+    return +res  # convet to array-scalar if needed
 
 def isreal(x):
     """
@@ -242,7 +229,7 @@ def isreal(x):
     Examples
     --------
     >>> np.isreal([1+1j, 1+0j, 4.5, 3, 2, 2j])
-    array([False,  True,  True,  True,  True, False])
+    array([False,  True,  True,  True,  True, False], dtype=bool)
 
     """
     return imag(x) == 0
@@ -279,13 +266,7 @@ def iscomplexobj(x):
     True
 
     """
-    try:
-        dtype = x.dtype
-        type_ = dtype.type
-    except AttributeError:
-        type_ = asarray(x).dtype.type
-    return issubclass(type_, _nx.complexfloating)
-
+    return issubclass(asarray(x).dtype.type, _nx.complexfloating)
 
 def isrealobj(x):
     """
@@ -319,7 +300,7 @@ def isrealobj(x):
     False
 
     """
-    return not iscomplexobj(x)
+    return not issubclass(asarray(x).dtype.type, _nx.complexfloating)
 
 #-----------------------------------------------------------------------------
 
@@ -328,40 +309,32 @@ def _getmaxmin(t):
     f = getlimits.finfo(t)
     return f.max, f.min
 
-def nan_to_num(x, copy=True):
+def nan_to_num(x):
     """
-    Replace NaN with zero and infinity with large finite numbers.
+    Replace nan with zero and inf with finite numbers.
 
-    If `x` is inexact, NaN is replaced by zero, and infinity and -infinity
-    replaced by the respectively largest and most negative finite floating
-    point values representable by ``x.dtype``.
-
-    For complex dtypes, the above is applied to each of the real and
-    imaginary components of `x` separately.
-
-    If `x` is not inexact, then no replacements are made.
+    Returns an array or scalar replacing Not a Number (NaN) with zero,
+    (positive) infinity with a very large number and negative infinity
+    with a very small (or negative) number.
 
     Parameters
     ----------
-    x : scalar or array_like
+    x : array_like
         Input data.
-    copy : bool, optional
-        Whether to create a copy of `x` (True) or to replace values
-        in-place (False). The in-place operation only occurs if
-        casting to an array does not require a copy.
-        Default is True.
-
-        .. versionadded:: 1.13
 
     Returns
     -------
     out : ndarray
-        `x`, with the non-finite values replaced. If `copy` is False, this may
-        be `x` itself.
+        New Array with the same shape as `x` and dtype of the element in
+        `x`  with the greatest precision. If `x` is inexact, then NaN is
+        replaced by zero, and infinity (-infinity) is replaced by the
+        largest (smallest or most negative) floating point value that fits
+        in the output dtype. If `x` is not inexact, then a copy of `x` is
+        returned.
 
     See Also
     --------
-    isinf : Shows which elements are positive or negative infinity.
+    isinf : Shows which elements are negative or negative infinity.
     isneginf : Shows which elements are negative infinity.
     isposinf : Shows which elements are positive infinity.
     isnan : Shows which elements are Not a Number (NaN).
@@ -369,44 +342,35 @@ def nan_to_num(x, copy=True):
 
     Notes
     -----
-    NumPy uses the IEEE Standard for Binary Floating-Point for Arithmetic
+    Numpy uses the IEEE Standard for Binary Floating-Point for Arithmetic
     (IEEE 754). This means that Not a Number is not equivalent to infinity.
+
 
     Examples
     --------
-    >>> np.nan_to_num(np.inf)
-    1.7976931348623157e+308
-    >>> np.nan_to_num(-np.inf)
-    -1.7976931348623157e+308
-    >>> np.nan_to_num(np.nan)
-    0.0
+    >>> np.set_printoptions(precision=8)
     >>> x = np.array([np.inf, -np.inf, np.nan, -128, 128])
     >>> np.nan_to_num(x)
     array([  1.79769313e+308,  -1.79769313e+308,   0.00000000e+000,
             -1.28000000e+002,   1.28000000e+002])
-    >>> y = np.array([complex(np.inf, np.nan), np.nan, complex(np.nan, np.inf)])
-    >>> np.nan_to_num(y)
-    array([  1.79769313e+308 +0.00000000e+000j,
-             0.00000000e+000 +0.00000000e+000j,
-             0.00000000e+000 +1.79769313e+308j])
+
     """
-    x = _nx.array(x, subok=True, copy=copy)
+    x = _nx.array(x, subok=True)
     xtype = x.dtype.type
-
-    isscalar = (x.ndim == 0)
-
     if not issubclass(xtype, _nx.inexact):
-        return x[()] if isscalar else x
+        return x
 
     iscomplex = issubclass(xtype, _nx.complexfloating)
+    isscalar = (x.ndim == 0)
 
+    x = x[None] if isscalar else x
     dest = (x.real, x.imag) if iscomplex else (x,)
     maxf, minf = _getmaxmin(x.real.dtype)
     for d in dest:
         _nx.copyto(d, 0.0, where=isnan(d))
         _nx.copyto(d, maxf, where=isposinf(d))
         _nx.copyto(d, minf, where=isneginf(d))
-    return x[()] if isscalar else x
+    return x[0] if isscalar else x
 
 #-----------------------------------------------------------------------------
 
@@ -439,12 +403,12 @@ def real_if_close(a,tol=100):
     -----
     Machine epsilon varies from machine to machine and between data types
     but Python floats on most platforms have a machine epsilon equal to
-    2.2204460492503131e-16.  You can use 'np.finfo(float).eps' to print
+    2.2204460492503131e-16.  You can use 'np.finfo(np.float).eps' to print
     out the machine epsilon for floats.
 
     Examples
     --------
-    >>> np.finfo(float).eps
+    >>> np.finfo(np.float).eps
     2.2204460492503131e-16
 
     >>> np.real_if_close([2.1 + 4e-14j], tol=1000)
@@ -460,7 +424,7 @@ def real_if_close(a,tol=100):
         from numpy.core import getlimits
         f = getlimits.finfo(a.dtype.type)
         tol = f.eps * tol
-    if _nx.all(_nx.absolute(a.imag) < tol):
+    if _nx.allclose(a.imag, 0, atol=tol):
         a = a.real
     return a
 
@@ -586,8 +550,8 @@ def common_type(*arrays):
     an integer array, the minimum precision type that is returned is a
     64-bit floating point dtype.
 
-    All input arrays except int64 and uint64 can be safely cast to the
-    returned dtype without loss of information.
+    All input arrays can be safely cast to the returned dtype without loss
+    of information.
 
     Parameters
     ----------

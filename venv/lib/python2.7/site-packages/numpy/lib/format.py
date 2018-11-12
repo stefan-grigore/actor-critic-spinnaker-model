@@ -1,10 +1,5 @@
 """
-Binary serialization
-
-NPY format
-==========
-
-A simple format for saving numpy arrays to disk with the full
+Define a simple format for saving numpy arrays to disk with the full
 information about them.
 
 The ``.npy`` format is the standard binary file format in NumPy for
@@ -105,9 +100,9 @@ the header data HEADER_LEN.
 The next HEADER_LEN bytes form the header data describing the array's
 format. It is an ASCII string which contains a Python literal expression
 of a dictionary. It is terminated by a newline (``\\n``) and padded with
-spaces (``\\x20``) to make the total of
-``len(magic string) + 2 + len(length) + HEADER_LEN`` be evenly divisible
-by 64 for alignment purposes.
+spaces (``\\x20``) to make the total length of
+``magic string + 4 + HEADER_LEN`` be evenly divisible by 16 for alignment
+purposes.
 
 The dictionary contains three keys:
 
@@ -148,10 +143,8 @@ data HEADER_LEN."
 
 Notes
 -----
-The ``.npy`` format, including motivation for creating it and a comparison of
-alternatives, is described in the `"npy-format" NEP 
-<http://www.numpy.org/neps/nep-0001-npy-format.html>`_, however details have
-evolved with time and this document is more current.
+The ``.npy`` format, including reasons for creating it and a comparison of
+alternatives, is described fully in the "npy-format" NEP.
 
 """
 from __future__ import division, absolute_import, print_function
@@ -168,9 +161,8 @@ if sys.version_info[0] >= 3:
 else:
     import cPickle as pickle
 
-MAGIC_PREFIX = b'\x93NUMPY'
+MAGIC_PREFIX = asbytes('\x93NUMPY')
 MAGIC_LEN = len(MAGIC_PREFIX) + 2
-ARRAY_ALIGN = 64 # plausible values are powers of 2 between 16 and 4096
 BUFFER_SIZE = 2**18  # size of buffer for reading npz files in bytes
 
 # difference between version 1.0 and 2.0 is a 4 byte (I) header length
@@ -312,32 +304,26 @@ def _write_array_header(fp, d, version=None):
         header.append("'%s': %s, " % (key, repr(value)))
     header.append("}")
     header = "".join(header)
+    # Pad the header with spaces and a final newline such that the magic
+    # string, the header-length short and the header are aligned on a
+    # 16-byte boundary.  Hopefully, some system, possibly memory-mapping,
+    # can take advantage of our premature optimization.
+    current_header_len = MAGIC_LEN + 2 + len(header) + 1  # 1 for the newline
+    topad = 16 - (current_header_len % 16)
+    header = header + ' '*topad + '\n'
     header = asbytes(_filter_header(header))
 
-    hlen = len(header) + 1 # 1 for newline
-    padlen_v1 = ARRAY_ALIGN - ((MAGIC_LEN + struct.calcsize('<H') + hlen) % ARRAY_ALIGN)
-    padlen_v2 = ARRAY_ALIGN - ((MAGIC_LEN + struct.calcsize('<I') + hlen) % ARRAY_ALIGN)
-
-    # Which version(s) we write depends on the total header size; v1 has a max of 65535
-    if hlen + padlen_v1 < 2**16 and version in (None, (1, 0)):
+    hlen = len(header)
+    if hlen < 256*256 and version in (None, (1, 0)):
         version = (1, 0)
-        header_prefix = magic(1, 0) + struct.pack('<H', hlen + padlen_v1)
-        topad = padlen_v1
-    elif hlen + padlen_v2 < 2**32 and version in (None, (2, 0)):
+        header_prefix = magic(1, 0) + struct.pack('<H', hlen)
+    elif hlen < 2**32 and version in (None, (2, 0)):
         version = (2, 0)
-        header_prefix = magic(2, 0) + struct.pack('<I', hlen + padlen_v2)
-        topad = padlen_v2
+        header_prefix = magic(2, 0) + struct.pack('<I', hlen)
     else:
         msg = "Header length %s too big for version=%s"
         msg %= (hlen, version)
         raise ValueError(msg)
-
-    # Pad the header with spaces and a final newline such that the magic
-    # string, the header-length short and the header are aligned on a
-    # ARRAY_ALIGN byte boundary.  This supports memory mapping of dtypes
-    # aligned up to ARRAY_ALIGN on systems like Linux where mmap()
-    # offset must be page-aligned (i.e. the beginning of the file).
-    header = header + b' '*topad + b'\n'
 
     fp.write(header_prefix)
     fp.write(header)
@@ -461,9 +447,7 @@ def _filter_header(s):
 
     tokens = []
     last_token_was_number = False
-    # adding newline as python 2.7.5 workaround
-    string = asstr(s) + "\n"
-    for token in tokenize.generate_tokens(StringIO(string).readline):
+    for token in tokenize.generate_tokens(StringIO(asstr(s)).read):
         token_type = token[0]
         token_string = token[1]
         if (last_token_was_number and
@@ -473,8 +457,7 @@ def _filter_header(s):
         else:
             tokens.append(token)
         last_token_was_number = (token_type == tokenize.NUMBER)
-    # removing newline (see above) as python 2.7.5 workaround
-    return tokenize.untokenize(tokens)[:-1]
+    return tokenize.untokenize(tokens)
 
 
 def _read_array_header(fp, version):
@@ -485,18 +468,18 @@ def _read_array_header(fp, version):
     # header.
     import struct
     if version == (1, 0):
-        hlength_type = '<H'
+        hlength_str = _read_bytes(fp, 2, "array header length")
+        header_length = struct.unpack('<H', hlength_str)[0]
+        header = _read_bytes(fp, header_length, "array header")
     elif version == (2, 0):
-        hlength_type = '<I'
+        hlength_str = _read_bytes(fp, 4, "array header length")
+        header_length = struct.unpack('<I', hlength_str)[0]
+        header = _read_bytes(fp, header_length, "array header")
     else:
         raise ValueError("Invalid version %r" % version)
 
-    hlength_str = _read_bytes(fp, struct.calcsize(hlength_type), "array header length")
-    header_length = struct.unpack(hlength_type, hlength_str)[0]
-    header = _read_bytes(fp, header_length, "array header")
-
     # The header is a pretty-printed string representation of a literal
-    # Python dictionary with trailing newlines padded to a ARRAY_ALIGN byte
+    # Python dictionary with trailing newlines padded to a 16-byte
     # boundary. The keys are strings.
     #   "shape" : tuple of int
     #   "fortran_order" : bool
@@ -573,13 +556,10 @@ def write_array(fp, array, version=None, allow_pickle=True, pickle_kwargs=None):
     # this warning can be removed when 1.9 has aged enough
     if version != (2, 0) and used_ver == (2, 0):
         warnings.warn("Stored array in format 2.0. It can only be"
-                      "read by NumPy >= 1.9", UserWarning, stacklevel=2)
+                      "read by NumPy >= 1.9", UserWarning)
 
-    if array.itemsize == 0:
-        buffersize = 0
-    else:
-        # Set buffer size to 16 MiB to hide the Python loop overhead.
-        buffersize = max(16 * 1024 ** 2 // array.itemsize, 1)
+    # Set buffer size to 16 MiB to hide the Python loop overhead.
+    buffersize = max(16 * 1024 ** 2 // array.itemsize, 1)
 
     if array.dtype.hasobject:
         # We contain Python objects so we cannot write out the data
@@ -643,7 +623,7 @@ def read_array(fp, allow_pickle=True, pickle_kwargs=None):
     if len(shape) == 0:
         count = 1
     else:
-        count = numpy.multiply.reduce(shape, dtype=numpy.int64)
+        count = numpy.multiply.reduce(shape)
 
     # Now read the actual data.
     if dtype.hasobject:
@@ -675,21 +655,15 @@ def read_array(fp, allow_pickle=True, pickle_kwargs=None):
             # of the read. In non-chunked case count < max_read_count, so
             # only one read is performed.
 
-            # Use np.ndarray instead of np.empty since the latter does
-            # not correctly instantiate zero-width string dtypes; see
-            # https://github.com/numpy/numpy/pull/6430
-            array = numpy.ndarray(count, dtype=dtype)
+            max_read_count = BUFFER_SIZE // min(BUFFER_SIZE, dtype.itemsize)
 
-            if dtype.itemsize > 0:
-                # If dtype.itemsize == 0 then there's nothing more to read
-                max_read_count = BUFFER_SIZE // min(BUFFER_SIZE, dtype.itemsize)
-
-                for i in range(0, count, max_read_count):
-                    read_count = min(max_read_count, count - i)
-                    read_size = int(read_count * dtype.itemsize)
-                    data = _read_bytes(fp, read_size, "array data")
-                    array[i:i+read_count] = numpy.frombuffer(data, dtype=dtype,
-                                                             count=read_count)
+            array = numpy.empty(count, dtype=dtype)
+            for i in range(0, count, max_read_count):
+                read_count = min(max_read_count, count - i)
+                read_size = int(read_count * dtype.itemsize)
+                data = _read_bytes(fp, read_size, "array data")
+                array[i:i+read_count] = numpy.frombuffer(data, dtype=dtype,
+                                                         count=read_count)
 
         if fortran_order:
             array.shape = shape[::-1]
@@ -776,7 +750,7 @@ def open_memmap(filename, mode='r+', dtype=None, shape=None,
             # this warning can be removed when 1.9 has aged enough
             if version != (2, 0) and used_ver == (2, 0):
                 warnings.warn("Stored array in format 2.0. It can only be"
-                              "read by NumPy >= 1.9", UserWarning, stacklevel=2)
+                              "read by NumPy >= 1.9", UserWarning)
             offset = fp.tell()
         finally:
             fp.close()

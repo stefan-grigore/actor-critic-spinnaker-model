@@ -78,7 +78,7 @@ typedef int (PyUFunc_TypeResolutionFunc)(
  *
  * ufunc:             The ufunc object.
  * dtypes:            An array which has been populated with dtypes,
- *                    in most cases by the type resolution function
+ *                    in most cases by the type resolution funciton
  *                    for the same ufunc.
  * fixed_strides:     For each input/output, either the stride that
  *                    will be used every time the function is called
@@ -167,7 +167,7 @@ typedef struct _tagPyUFuncObject {
         int *core_dim_ixs;
         /*
          * positions of 1st core dimensions of each
-         * argument in core_dim_ixs, equivalent to cumsum(core_num_dims)
+         * argument in core_dim_ixs
          */
         int *core_offsets;
         /* signature string for printing purpose */
@@ -251,21 +251,15 @@ typedef struct _tagPyUFuncObject {
 #endif
 
 /*
- * UFunc has unit of 0, and the order of operations can be reordered
- * This case allows reduction with multiple axes at once.
- */
-#define PyUFunc_Zero 0
-/*
  * UFunc has unit of 1, and the order of operations can be reordered
  * This case allows reduction with multiple axes at once.
  */
 #define PyUFunc_One 1
 /*
- * UFunc has unit of -1, and the order of operations can be reordered
- * This case allows reduction with multiple axes at once. Intended for
- * bitwise_and reduction.
+ * UFunc has unit of 0, and the order of operations can be reordered
+ * This case allows reduction with multiple axes at once.
  */
-#define PyUFunc_MinusOne 2
+#define PyUFunc_Zero 0
 /*
  * UFunc has no unit, and the order of operations cannot be reordered.
  * This case does not allow reduction with multiple axes at once.

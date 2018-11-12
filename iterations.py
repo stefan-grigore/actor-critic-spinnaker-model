@@ -164,7 +164,7 @@ for i in range(10):
     weightLeft.append(weights[1])
     weightJumpRight.append(weights[2])
     weightJumpLeft.append(weights[2])
-    # live_spikes_connection2._start_resume_callback['input1'].pop()
+    live_spikes_connection2._start_resume_callback['input1'].pop()
 
 
 # neo = post_pop.get_data(variables=["spikes", "v"])

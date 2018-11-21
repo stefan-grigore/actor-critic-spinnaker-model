@@ -45,55 +45,57 @@ step = 0
 firedIndex = []
 
 
-def receive_spikes(label, time, neuron_ids):
-    global step
+def execute_commands():
+    global step, firedIndex
     try:
         print 'step: ' + str(step)
         time = datetime.time(datetime.now())
+        commands = list(set(firedIndex))
+        print 'no duplicates fireIndex ' + str(commands)
+        commands.sort()
+        print 'sorted fireIndex ' + str(commands)
+        for neuron_id in commands:
+            print 'doing ' + str(neuron_id)
+            neuron_id %= 4
+            if str(neuron_id) is '0':
+                print str(time) + ' press right'
+                k.press_key(k.right_key)
+                sleep(1)
+                print str(time) + ' release right'
+                k.release_key(k.right_key)
+            if str(neuron_id) is '1':
+                print str(time) + ' press left'
+                k.press_key(k.left_key)
+                sleep(1)
+                print str(time) + ' release left'
+                k.release_key(k.left_key)
+            if str(neuron_id) is '2':
+                print str(time) + ' press space + right'
+                k.press_key(k.space)
+                k.press_key(k.right_key)
+                sleep(1)
+                print str(time) + ' release space + right'
+                k.release_key(k.space)
+                k.release_key(k.right_key)
+            if str(neuron_id) is '3':
+                print str(time) + ' press space + left'
+                k.press_key(k.space)
+                k.press_key(k.left_key)
+                sleep(1)
+                print str(time) + ' release space + left'
+                k.release_key(k.space)
+                k.release_key(k.left_key)
+    except RuntimeError:
+        pass
+
+
+def receive_spikes(label, time, neuron_ids):
+    global firedIndex
+    try:
         print str(neuron_ids)
         for neuron_id in neuron_ids:
-            print 'trying to fire ' + str(neuron_id)
-            print 'firedIndex ' + str(firedIndex)
-            if neuron_id not in firedIndex:
-                if neuron_id > 3:
-                    sleep(1.5)
-                    print 'sleeping'
-                # if neuron_id < 4 * step:
-                print 'doing ' + str(neuron_id)
-                firedIndex.append(neuron_id)
-                neuron_id %= 4
-                if str(neuron_id) is '0':
-                    print str(time) + ' press right'
-                    k.press_key(k.right_key)
-                    sleep(1)
-                    print str(time) + ' release right'
-                    k.release_key(k.right_key)
-                if str(neuron_id) is '1':
-                    print str(time) + ' press left'
-                    k.press_key(k.left_key)
-                    sleep(1)
-                    print str(time) + ' release left'
-                    k.release_key(k.left_key)
-                if str(neuron_id) is '2':
-                    print str(time) + ' press space + right'
-                    k.press_key(k.space)
-                    k.press_key(k.right_key)
-                    sleep(1)
-                    print str(time) + ' release space + right'
-                    k.release_key(k.space)
-                    k.release_key(k.right_key)
-                if str(neuron_id) is '3':
-                    print str(time) + ' press space + left'
-                    k.press_key(k.space)
-                    k.press_key(k.left_key)
-                    sleep(1)
-                    print str(time) + ' release space + left'
-                    k.release_key(k.space)
-                    k.release_key(k.left_key)
-                # for neuron in range()
-                # live_spikes_connection2.send_spike('input1', neuron,
-                #                                    send_full_keys=True)
-
+            print 'fired ' + str(neuron_id)
+            firedIndex.append(neuron_id)
     except RuntimeError:
         pass
 
@@ -214,10 +216,11 @@ for i in range(numberOfSteps):
                 live_spikes_connection2.add_start_callback('input1',
                                                            send_spike, j*4 + 3)
 
-    sim.run(2000 + i*2000)
+    sim.run(2000 + i*3000)
     sleep(1.5)
     weights = stdp_projection.getWeights()
     print weights
+    execute_commands()
     for j in range(numberOfSteps):
         weightPlotRight[j].append(weights[j*4])
         weightPlotLeft[j].append(weights[j*4+1])
@@ -228,10 +231,6 @@ for i in range(numberOfSteps):
     firedIndex = []
 
 
-
-# neo = post_pop.get_data(variables=["spikes", "v"])
-# spikes = neo.segments[0].spiketrains
-# v = neo.segments[0].filter(name='v')[0]
 neo = post_pop.get_data(variables=["spikes", "v"])
 spikes2 = neo.segments[0].spiketrains
 v2 = neo.segments[0].filter(name='v')[0]

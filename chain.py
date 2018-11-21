@@ -41,7 +41,7 @@ post_pop.record(["spikes", "v"])
 
 k = PyKeyboard()
 
-step = 0
+step = 1
 firedIndex = []
 
 
@@ -51,9 +51,7 @@ def execute_commands():
         print 'step: ' + str(step)
         time = datetime.time(datetime.now())
         commands = list(set(firedIndex))
-        print 'no duplicates fireIndex ' + str(commands)
         commands.sort()
-        print 'sorted fireIndex ' + str(commands)
         for neuron_id in commands:
             print 'doing ' + str(neuron_id)
             neuron_id %= 4
@@ -196,27 +194,76 @@ for i in range(numberOfSteps):
     restarting_simulation()
     step += 1
     if i > 0:
+        print 'Looking at the history of weights in order to choose actions'
         for j in range(i+1):
-            action = weights[j*4:(j+1)*4-1].argmax()
-            print str(weights[j*4:(j+1)*4-1]) + '=============================='
-            if action == 0:
-                print 'go right'
-                live_spikes_connection2.add_start_callback('input1',
-                                                           send_spike, j*4)
-            if action == 1:
-                print 'go left'
-                live_spikes_connection2.add_start_callback('input1',
-                                                           send_spike, j*4 + 1)
-            if action == 2:
-                print 'jump right'
-                live_spikes_connection2.add_start_callback('input1',
-                                                           send_spike, j*4 + 2)
-            if action == 3:
-                print 'jump left'
-                live_spikes_connection2.add_start_callback('input1',
-                                                           send_spike, j*4 + 3)
+            if j != i:
+                print 'The weights ' + str(weights)
+                print 'For action ' + str(j+1)
+                action = weights[j*4:(j+1)*4-1].argmax()
+                print str(weights[j*4:(j+1)*4-1]) + '=============================='
+                if action == 0:
+                    print 'go right'
+                    live_spikes_connection2.add_start_callback('input1',
+                                                               send_spike, j*4)
+                if action == 1:
+                    print 'go left'
+                    live_spikes_connection2.add_start_callback('input1',
+                                                               send_spike, j*4 + 1)
+                if action == 2:
+                    print 'jump right'
+                    live_spikes_connection2.add_start_callback('input1',
+                                                               send_spike, j*4 + 2)
+                if action == 3:
+                    print 'jump left'
+                    live_spikes_connection2.add_start_callback('input1',
+                                                               send_spike, j*4 + 3)
 
-    sim.run(2000 + i*3000)
+            else:
+                print 'For the next action'
+                image = pyautogui.screenshot(region=(0, 200, 1250, 700))
+                image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+                cv2.imwrite("screenCapture.png", image)
+                meatboy_image = cv2.imread('meatboy.png')
+                meatgirl_image = cv2.imread('meatgirl.png')
+                large_image = cv2.imread("screenCapture.png")
+                method = cv2.TM_SQDIFF_NORMED
+                result = cv2.matchTemplate(meatboy_image.astype(np.float32),
+                                           large_image.astype(np.float32), method)
+                result2 = cv2.matchTemplate(meatgirl_image.astype(np.float32),
+                                            large_image.astype(np.float32), method)
+                mn, _, mnLoc, _ = cv2.minMaxLoc(result)
+                mn2, _, mnLoc2, _ = cv2.minMaxLoc(result2)
+                MPx, MPy = mnLoc
+                MPx2, MPy2 = mnLoc2
+
+                xOffset = MPx2 - MPx
+                yOffset = MPy2 - MPy
+                # too low
+                if yOffset < 0:
+                    # too much to the left
+                    if xOffset > 0:
+                        print 'go right'
+                        live_spikes_connection2.add_start_callback('input1', send_spike,
+                                                                   j * 4 + 2)
+                    # too much to the right
+                    else:
+                        print 'go left'
+                        live_spikes_connection2.add_start_callback('input1', send_spike,
+                                                                   j * 4 + 3)
+                else:
+                    # too much to the left
+                    if xOffset > 0:
+                        print 'jump right'
+                        live_spikes_connection2.add_start_callback('input1',
+                                                                   send_spike, j*4)
+                    # too much to the right
+                    else:
+                        print 'jump left'
+                        live_spikes_connection2.add_start_callback('input1',
+                                                                   send_spike, j*4 + 1)
+
+
+    sim.run(2000 + i*2000)
     sleep(1.5)
     weights = stdp_projection.getWeights()
     print weights

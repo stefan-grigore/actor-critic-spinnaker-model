@@ -38,6 +38,8 @@ post_pop.record(["spikes", "v"])
 
 k = PyKeyboard()
 
+step = 0
+
 
 def receive_spikes(label, time, neuron_ids):
     try:

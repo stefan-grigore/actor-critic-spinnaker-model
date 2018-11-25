@@ -1,5 +1,5 @@
 .screenshot*
-screenCapture.png
+screenCapture*
 application_generated_data_files
 reports/*
 .idea/workspace.xml

@@ -13,7 +13,9 @@ from datetime import datetime
 sim.setup(timestep=1.0)
 sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
 
-numberOfSteps = 3
+numberOfSteps = 5
+
+
 
 input1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input1")
 
@@ -46,13 +48,16 @@ firedIndex = []
 history = []
 nextAction = 0
 
+# these are absolutes
+prevXOffset = 0
+prevYOffset = 0
+
 
 def execute_commands():
-    global step, firedIndex, nextAction
+    global step, firedIndex, nextAction, prevXOffset, prevYOffset
     try:
         print 'Executing commands for step: ' + str(step)
         historyStep = 'step ' + str(step) + ': '
-        step += 1
         commands = list(set(firedIndex))
         commands.sort()
         for neuron_id in commands:
@@ -102,9 +107,8 @@ def execute_commands():
                 print str(time) + ' release space + left'
                 k.release_key(k.space)
                 k.release_key(k.left_key)
-        history.append(historyStep)
         sleep(0.5)
-        print 'For the next action in step ' + str(step)
+        print 'For the next action in step ' + str(step + 1)
         image = pyautogui.screenshot(region=(0, 200, 1250, 700))
         image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         cv2.imwrite("screenCapture" + str(step) + ".png", image)
@@ -140,21 +144,53 @@ def execute_commands():
             # too much to the left
             if xOffset > 0:
                 print 'jump right'
-                nextAction = (step-1) * 4 + 2
+                nextAction = (step) * 4 + 2
             # too much to the right
             else:
                 print 'jump left'
-                nextAction = (step-1) * 4 + 3
+                nextAction = (step) * 4 + 3
         else:
             # too much to the left
             if xOffset > 0:
                 print 'go right'
-                nextAction = (step-1) * 4
+                nextAction = (step) * 4
             # too much to the right
             else:
                 print 'go left'
-                nextAction = (step-1) * 4 + 1
+                nextAction = (step) * 4 + 1
         print 'Next action: ' + str(nextAction)
+        print 'Checking progress'
+        if step is 1:
+            prevXOffset = abs(xOffset)
+            prevYOffset = abs(yOffset)
+        # if progress has been made in any direction
+        # TODO: also check if progress has been made globally
+        elif abs(xOffset) + 5 < prevXOffset or abs(yOffset) + 5 < prevYOffset:
+            historyStep += ' better than previous step'
+            # reward
+            for index in range(0, len(commands)):
+                reward = numberOfSteps - step - index + 1
+                print 'Rewarding command ' + str(index) + ' which is ' + str(commands[index]) + ' with ' + str(reward) + ' spikes'
+                for i in range(0, reward):
+                    live_spikes_connection2.add_start_callback('input1', send_spike, commands[index])
+                reward -= 1
+                print 'Previous xOffset ' + str(prevXOffset)
+                print 'Previous yOffset ' + str(prevYOffset)
+                prevXOffset = abs(xOffset)
+                prevYOffset = abs(yOffset)
+        else:
+            historyStep += ' worse than previous step'
+            print 'Previous xOffset ' + str(prevXOffset)
+            print 'Previous yOffset ' + str(prevYOffset)
+            prevXOffset = abs(xOffset)
+            prevYOffset = abs(yOffset)
+        step += 1
+
+
+        history.append(historyStep)
+
+
+
     except RuntimeError:
         pass
 
@@ -199,6 +235,7 @@ def press_key(key):
     sleep(0.2)
     k.release_key(key)
     sleep(0.2)
+
 
 weights = []
 weightPlotRight = [[0 for x in range(numberOfSteps)] for y in range(numberOfSteps)]
@@ -280,13 +317,10 @@ print 'Next action: ' + str(nextAction)
 
 for i in range(numberOfSteps):
 
+    print 'The weights ' + str(weights)
     for j in range(i+1):
         if j != i:
-            print 'Looking at the history of weights in order to choose actions'
-            print 'The weights ' + str(weights)
-            print 'For action ' + str(j+1)
             action = weights[j*4:(j+1)*4].argmax()
-            print str(weights[j*4:(j+1)*4])
             if action == 0:
                 print 'go right'
                 live_spikes_connection2.add_start_callback('input1',
@@ -309,10 +343,16 @@ for i in range(numberOfSteps):
                                                        nextAction)
 
     sim.run(2000 + i*2000)
+    live_spikes_connection2.clear_start_resume_callbacks('input1')
     sleep(1.5)
     weights = stdp_projection.getWeights()
     print weights
     execute_commands()
+    print 'Executing rewards / punishments'
+    sim.run(2000 + i*2000)
+    live_spikes_connection2.clear_start_resume_callbacks('input1')
+    weights = stdp_projection.getWeights()
+    print weights
     sleep(1)
     for j in range(numberOfSteps):
         weightPlotRight[j].append(weights[j*4])
@@ -320,7 +360,6 @@ for i in range(numberOfSteps):
         weightPlotJumpRight[j].append(weights[j*4+2])
         weightPlotJumpLeft[j].append(weights[j*4+3])
 
-    live_spikes_connection2.clear_start_resume_callbacks('input1')
     firedIndex = []
     restarting_simulation()
 

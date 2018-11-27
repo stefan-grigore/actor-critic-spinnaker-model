@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import pyautogui
 from datetime import datetime
+from random import randint
 
 
 sim.setup(timestep=1.0)
@@ -52,9 +53,12 @@ nextAction = 0
 prevXOffset = 0
 prevYOffset = 0
 
+didExplore = False
+exploring = False
+
 
 def execute_commands():
-    global step, firedIndex, nextAction, prevXOffset, prevYOffset
+    global step, firedIndex, nextAction, prevXOffset, prevYOffset, exploring, didExplore
     try:
         print 'Executing commands for step: ' + str(step)
         historyStep = 'step ' + str(step) + ': '
@@ -144,20 +148,32 @@ def execute_commands():
             # too much to the left
             if xOffset > 0:
                 print 'jump right'
-                nextAction = (step) * 4 + 2
+                nextAction = 2
             # too much to the right
             else:
                 print 'jump left'
-                nextAction = (step) * 4 + 3
+                nextAction = 3
         else:
             # too much to the left
             if xOffset > 0:
                 print 'go right'
-                nextAction = (step) * 4
+                nextAction = 0
             # too much to the right
             else:
                 print 'go left'
-                nextAction = (step) * 4 + 1
+                nextAction = 1
+        if not exploring:
+            nextAction = step * 4 + nextAction
+        else:
+            print 'Exploring'
+            print 'Action suggested by environment ' + str(nextAction)
+            chosenAction = randint(0, 3)
+            # while the explored action belongs to the same class as the action suggested by the environment
+            # try to pick another action to explore
+            while chosenAction%2 is nextAction%2:
+                chosenAction = randint(0, 3)
+            nextAction = chosenAction
+            nextAction = step * 4 + nextAction
         print 'Next action: ' + str(nextAction)
         print 'Checking progress'
         if step is 1:
@@ -166,6 +182,7 @@ def execute_commands():
         # if progress has been made in any direction
         # TODO: also check if progress has been made globally
         elif abs(xOffset) + 5 < prevXOffset or abs(yOffset) + 5 < prevYOffset:
+            exploring = False
             historyStep += ' better than previous step'
             # reward
             for index in range(0, len(commands)):
@@ -179,18 +196,16 @@ def execute_commands():
                 prevXOffset = abs(xOffset)
                 prevYOffset = abs(yOffset)
         else:
+            if not didExplore:
+                exploring = True
             historyStep += ' worse than previous step'
             print 'Previous xOffset ' + str(prevXOffset)
             print 'Previous yOffset ' + str(prevYOffset)
             prevXOffset = abs(xOffset)
             prevYOffset = abs(yOffset)
+        didExplore = exploring
         step += 1
-
-
         history.append(historyStep)
-
-
-
     except RuntimeError:
         pass
 

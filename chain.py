@@ -16,9 +16,9 @@ sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
 
 numberOfSteps = 5
 
-
-
 input1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input1")
+
+input2 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input2")
 
 pre_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="pre_pop")
 post_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="post_pop")
@@ -26,6 +26,7 @@ post_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=25, tau_ref
 sim.external_devices.activate_live_output_for(pre_pop, database_notify_host="localhost", database_notify_port_num=19996)
 sim.external_devices.activate_live_output_for(input1, database_notify_host="localhost", database_notify_port_num=19998)
 sim.external_devices.activate_live_output_for(post_pop, database_notify_host="localhost", database_notify_port_num=20000)
+sim.external_devices.activate_live_output_for(input2, database_notify_host="localhost", database_notify_port_num=20002)
 
 timing_rule = sim.SpikePairRule(tau_plus=50.0, tau_minus=50.0,
                                 A_plus=0.001, A_minus=0.001)
@@ -36,8 +37,12 @@ stdp_model = sim.STDPMechanism(timing_dependence=timing_rule,
 
 stdp_projection = sim.Projection(pre_pop, post_pop, sim.OneToOneConnector(),
                                  synapse_type=stdp_model)
+
 input_projection1 = sim.Projection(input1, pre_pop, sim.OneToOneConnector(),
-                            synapse_type=sim.StaticSynapse(weight=5, delay=1))
+                            synapse_type=sim.StaticSynapse(weight=5, delay=2))
+
+input_projection2 = sim.Projection(input2, post_pop, sim.OneToOneConnector(),
+                            synapse_type=sim.StaticSynapse(weight=5, delay=0))
 
 pre_pop.record(["spikes", "v"])
 post_pop.record(["spikes", "v"])
@@ -68,7 +73,7 @@ def execute_commands():
             print 'doing ' + str(neuron_id)
             neuron_id %= 4
             if str(neuron_id) is '0':
-                sleep(0.1)
+                sleep(0.15)
                 historyStep += ' went right, '
                 time = datetime.time(datetime.now())
                 print str(time) + ' press right'
@@ -78,7 +83,7 @@ def execute_commands():
                 print str(time) + ' release right'
                 k.release_key(k.right_key)
             if str(neuron_id) is '1':
-                sleep(0.1)
+                sleep(0.15)
                 historyStep += ' went left, '
                 time = datetime.time(datetime.now())
                 print str(time) + ' press left'
@@ -88,7 +93,7 @@ def execute_commands():
                 print str(time) + ' release left'
                 k.release_key(k.left_key)
             if str(neuron_id) is '2':
-                sleep(0.1)
+                sleep(0.15)
                 historyStep += ' jumped right, '
                 time = datetime.time(datetime.now())
                 print str(time) + ' press space + right'
@@ -100,7 +105,7 @@ def execute_commands():
                 k.release_key(k.space)
                 k.release_key(k.right_key)
             if str(neuron_id) is '3':
-                sleep(0.1)
+                sleep(0.15)
                 historyStep += ' jumped left, '
                 time = datetime.time(datetime.now())
                 print str(time) + ' press space + left'
@@ -174,7 +179,7 @@ def execute_commands():
                 chosenAction = randint(0, 3)
             nextAction = chosenAction
             nextAction = step * 4 + nextAction
-        print 'Next action: ' + str(nextAction)
+        print 'Next action: ' + str(nextAction%4)
         print 'Checking progress'
         if step is 1:
             prevXOffset = abs(xOffset)
@@ -186,7 +191,7 @@ def execute_commands():
             historyStep += ' better than previous step'
             # reward
             for index in range(0, len(commands)):
-                reward = numberOfSteps - step - index + 1
+                reward = numberOfSteps - step + index + 1
                 print 'Rewarding command ' + str(index) + ' which is ' + str(commands[index]) + ' with ' + str(reward) + ' spikes'
                 for i in range(0, reward):
                     live_spikes_connection2.add_start_callback('input1', send_spike, commands[index])
@@ -199,6 +204,16 @@ def execute_commands():
             if not didExplore:
                 exploring = True
             historyStep += ' worse than previous step'
+            # punishment
+            for index in range(0, len(commands)):
+                punishment = numberOfSteps - step + index + 1
+                print 'Punishing command ' + str(index) + ' which is ' + str(commands[index]) + ' with ' + str(punishment) + ' spikes'
+                for i in range(0, punishment):
+                    live_spikes_connection3.add_start_callback('input2', send_spike, commands[index])
+                    live_spikes_connection2.add_start_callback('input1',
+                                                               send_spike,
+                                                               commands[index])
+                punishment -= 1
             print 'Previous xOffset ' + str(prevXOffset)
             print 'Previous yOffset ' + str(prevYOffset)
             prevXOffset = abs(xOffset)
@@ -230,6 +245,9 @@ live_spikes_connection = sim.external_devices.SpynnakerLiveSpikesConnection(
 live_spikes_connection2 = sim.external_devices.SpynnakerLiveSpikesConnection(
     receive_labels=None, local_port=19998, send_labels=['input1'])
 
+live_spikes_connection3 = sim.external_devices.SpynnakerLiveSpikesConnection(
+    receive_labels=None, local_port=20002, send_labels=['input2'])
+
 live_spikes_connection.add_receive_callback("post_pop", receive_spikes)
 
 
@@ -253,10 +271,16 @@ def press_key(key):
 
 
 weights = []
-weightPlotRight = [[0 for x in range(numberOfSteps)] for y in range(numberOfSteps)]
-weightPlotLeft = [[0 for x in range(numberOfSteps)] for y in range(numberOfSteps)]
-weightPlotJumpRight = [[0 for x in range(numberOfSteps)] for y in range(numberOfSteps)]
-weightPlotJumpLeft = [[0 for x in range(numberOfSteps)] for y in range(numberOfSteps)]
+
+
+class Step:
+    weightPlotRight = []
+    weightPlotLeft = []
+    weightPlotJumpRight = []
+    weightPlotJumpLeft = []
+
+
+listOfStepObjects = [Step() for i in range(numberOfSteps)]
 
 
 def restarting_simulation():
@@ -331,8 +355,6 @@ print 'Next action: ' + str(nextAction)
 
 
 for i in range(numberOfSteps):
-
-    print 'The weights ' + str(weights)
     for j in range(i+1):
         if j != i:
             action = weights[j*4:(j+1)*4].argmax()
@@ -370,10 +392,10 @@ for i in range(numberOfSteps):
     print weights
     sleep(1)
     for j in range(numberOfSteps):
-        weightPlotRight[j].append(weights[j*4])
-        weightPlotLeft[j].append(weights[j*4+1])
-        weightPlotJumpRight[j].append(weights[j*4+2])
-        weightPlotJumpLeft[j].append(weights[j*4+3])
+        listOfStepObjects[j].weightPlotRight.append(weights[j*4])
+        listOfStepObjects[j].weightPlotLeft.append(weights[j*4+1])
+        listOfStepObjects[j].weightPlotJumpRight.append(weights[j*4+2])
+        listOfStepObjects[j].weightPlotJumpLeft.append(weights[j*4+3])
 
     firedIndex = []
     restarting_simulation()
@@ -389,14 +411,23 @@ for historyStep in history:
     print historyStep
 
 # for j in range(numberOfSteps):
-#     plt.plot(weightPlotRight[j], label='right weights at step ' + str(j))
-#     plt.plot(weightPlotLeft[j], label='left weights at step ' + str(j))
-#     plt.plot(weightPlotJumpRight[j], label='jump right weights at step ' + str(j))
-#     plt.plot(weightPlotJumpLeft[j], label='jump left weights at step ' + str(j))
+#     if (listOfStepObjects[j].weightPlotRight.count(listOfStepObjects[j].weightPlotRight[0]) != len(listOfStepObjects[j].weightPlotRight)):
+#         plt.plot(listOfStepObjects[j].weightPlotRight, label='right weights at step ' + str(j))
+#         print 'right weights at step ' + str(j) + ' ' + str(listOfStepObjects[j].weightPlotRight)
+#     if (listOfStepObjects[j].weightPlotLeft.count(listOfStepObjects[j].weightPlotLeft[0]) != len(listOfStepObjects[j].weightPlotLeft)):
+#         plt.plot(listOfStepObjects[j].weightPlotLeft, label='left weights at step ' + str(j))
+#         print 'left weights at step ' + str(j) + ' ' + str(listOfStepObjects[j].weightPlotLeft)
+#     if (listOfStepObjects[j].weightPlotJumpRight.count(listOfStepObjects[j].weightPlotJumpRight[0]) != len(listOfStepObjects[j].weightPlotJumpRight)):
+#         plt.plot(listOfStepObjects[j].weightPlotJumpRight, label='jump right weights at step ' + str(j))
+#         print 'jump right weights at step ' + str(j) + ' ' + str(listOfStepObjects[j].weightPlotJumpRight)
+#     if (listOfStepObjects[j].weightPlotJumpLeft.count(listOfStepObjects[j].weightPlotJumpLeft[0]) != len(listOfStepObjects[j].weightPlotJumpLeft)):
+#         plt.plot(listOfStepObjects[j].weightPlotJumpLeft, label='jump left weights at step ' + str(j))
+#         print 'jump left weights at step ' + str(j) + ' ' + str(listOfStepObjects[j].weightPlotJumpLeft)
+#
 #
 # plt.legend()
 # plt.show()
-#
+
 # plot.Figure(
 #     plot.Panel(v2, ylabel="Membrane potential (mV)",
 #                data_labels=['controls'], yticks=True),

@@ -14,17 +14,29 @@ from random import randint
 sim.setup(timestep=1.0)
 sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
 
-numberOfSteps = 11
+numberOfSteps = 12
 
-input1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input1")
+ in p   u   t1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input1")
+
+
 
 input2 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input2")
 
-pre_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="pre_pop")
-post_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="post_pop")
 
-sim.external_devices.activate_live_output_for(pre_pop, database_notify_host="localhost", database_notify_port_num=19996)
-sim.external_devices.activate_live_output_for(input1, database_notify_host="localhost", database_notify_port_num=19998)
+
+ pr e    _   pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="pre_pop")
+post_
+p
+op = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="post_pop")
+
+
+
+ si m     .   external_devices.activate_live_output_for(pre_pop, database_notify_host="localhost", database_notify_port_num=19996)
+sim.\
+    e
+xternal_devices.activate_live_output_for(input1, database_notify_host="localhost", database_notify_port_num=19998)
+
+
 sim.external_devices.activate_live_output_for(post_pop, database_notify_host="localhost", database_notify_port_num=20000)
 sim.external_devices.activate_live_output_for(input2, database_notify_host="localhost", database_notify_port_num=20002)
 
@@ -321,7 +333,7 @@ class Step:
 listOfStepObjects = [Step() for i in range(numberOfSteps)]
 
 
-def restarting_simulation():
+def restarting_simulation_thread():
     press_key(k.escape_key)
     press_key(k.down_key)
     press_key(k.enter_key)
@@ -337,15 +349,15 @@ def restarting_simulation():
     press_key(k.left_key)
     press_key(k.enter_key)
 
-
-restarting_simulation()
-sleep(2)
+sleep(1)
+threading.Thread(target=restarting_simulation_thread).start()
+sleep(6.5)
 image = pyautogui.screenshot(region=(0, 200, 1250, 700))
 image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-cv2.imwrite("screenCapture" + str(step) + ".png", image)
+cv2.imwrite("screenCapture0.png", image)
 meatboy_image = cv2.imread('meatboy.png')
 meatgirl_image = cv2.imread('meatgirl.png')
-large_image = cv2.imread("screenCapture" + str(step) + ".png")
+large_image = cv2.imread("screenCapture0.png")
 method = cv2.TM_SQDIFF_NORMED
 result = cv2.matchTemplate(meatboy_image.astype(np.float32),
                            large_image.astype(np.float32), method)
@@ -361,10 +373,10 @@ yOffset = MPy2 - MPy
 
 image = pyautogui.screenshot(region=(0, 200, 1250, 700))
 image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-cv2.imwrite("screenCapture" + str(step) + ".png", image)
+cv2.imwrite("screenCapture0.png", image)
 meatboy_image = cv2.imread('meatboy.png')
 meatgirl_image = cv2.imread('meatgirl.png')
-large_image = cv2.imread("screenCapture" + str(step) + ".png")
+large_image = cv2.imread("screenCapture0.png")
 method = cv2.TM_SQDIFF_NORMED
 result = cv2.matchTemplate(meatboy_image.astype(np.float32),
                            large_image.astype(np.float32), method)
@@ -475,8 +487,8 @@ for i in range(numberOfSteps):
         listOfStepObjects[j].weightPlotJumpLeft.append(weights[j*4+3])
 
     firedIndex = []
-    restarting_simulation()
-
+    if i is not numberOfSteps:
+        threading.Thread(target=restarting_simulation_thread).start()
 
 neo = post_pop.get_data(variables=["spikes", "v"])
 spikes2 = neo.segments[0].spiketrains

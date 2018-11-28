@@ -118,7 +118,7 @@ def execute_commands():
                 k.release_key(k.left_key)
         sleep(0.5)
         print 'For the next action in step ' + str(step + 1)
-        image = pyautogui.screenshot(region=(0, 200, 1250, 700))
+        image = pyautogui.screenshot(region=(0, 250, 1250, 700))
         image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         cv2.imwrite("screenCapture" + str(step) + ".png", image)
         meatboy_image = cv2.imread('meatboy.png')
@@ -137,7 +137,7 @@ def execute_commands():
         xOffset = MPx2 - MPx
         yOffset = MPy2 - MPy
 
-        image = pyautogui.screenshot(region=(0, 200, 1250, 700))
+        image = pyautogui.screenshot(region=(0, 250, 1250, 700))
         image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         cv2.imwrite("screenCapture" + str(step) + ".png", image)
         meatboy_image = cv2.imread('meatboy.png')
@@ -159,7 +159,7 @@ def execute_commands():
         while abs(xOffset - xOffset1) > 5 and abs(yOffset - yOffset1) > 5:
             xOffset = xOffset1
             yOffset = yOffset1
-            image = pyautogui.screenshot(region=(0, 200, 1250, 700))
+            image = pyautogui.screenshot(region=(0, 250, 1250, 700))
             image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
             cv2.imwrite("screenCapture" + str(step) + ".png", image)
             meatboy_image = cv2.imread('meatboy.png')
@@ -340,7 +340,7 @@ def restarting_simulation_thread():
 sleep(1)
 threading.Thread(target=restarting_simulation_thread).start()
 sleep(6.5)
-image = pyautogui.screenshot(region=(0, 200, 1250, 700))
+image = pyautogui.screenshot(region=(0, 250, 1250, 700))
 image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
 cv2.imwrite("screenCapture0.png", image)
 meatboy_image = cv2.imread('meatboy.png')
@@ -359,7 +359,7 @@ MPx2, MPy2 = mnLoc2
 xOffset = MPx2 - MPx
 yOffset = MPy2 - MPy
 
-image = pyautogui.screenshot(region=(0, 200, 1250, 700))
+image = pyautogui.screenshot(region=(0, 250, 1250, 700))
 image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
 cv2.imwrite("screenCapture0.png", image)
 meatboy_image = cv2.imread('meatboy.png')
@@ -381,7 +381,7 @@ yOffset1 = MPy2 - MPy
 while abs(xOffset-xOffset1) > 5 and abs(yOffset-yOffset1) > 5:
     xOffset = xOffset1
     yOffset = yOffset1
-    image = pyautogui.screenshot(region=(0, 200, 1250, 700))
+    image = pyautogui.screenshot(region=(0, 250, 1250, 700))
     image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     cv2.imwrite("screenCapture" + str(step) + ".png", image)
     meatboy_image = cv2.imread('meatboy.png')

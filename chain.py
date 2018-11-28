@@ -16,27 +16,15 @@ sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
 
 numberOfSteps = 12
 
- in p   u   t1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input1")
-
-
+input1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input1")
 
 input2 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input2")
 
+pre_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="pre_pop")
+post_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="post_pop")
 
-
- pr e    _   pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="pre_pop")
-post_
-p
-op = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="post_pop")
-
-
-
- si m     .   external_devices.activate_live_output_for(pre_pop, database_notify_host="localhost", database_notify_port_num=19996)
-sim.\
-    e
-xternal_devices.activate_live_output_for(input1, database_notify_host="localhost", database_notify_port_num=19998)
-
-
+sim.external_devices.activate_live_output_for(pre_pop, database_notify_host="localhost", database_notify_port_num=19996)
+sim.external_devices.activate_live_output_for(input1, database_notify_host="localhost", database_notify_port_num=19998)
 sim.external_devices.activate_live_output_for(post_pop, database_notify_host="localhost", database_notify_port_num=20000)
 sim.external_devices.activate_live_output_for(input2, database_notify_host="localhost", database_notify_port_num=20002)
 

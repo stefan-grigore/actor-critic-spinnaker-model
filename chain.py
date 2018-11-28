@@ -14,7 +14,7 @@ from random import randint
 sim.setup(timestep=1.0)
 sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
 
-numberOfSteps = 5
+numberOfSteps = 10
 
 input1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input1")
 
@@ -78,7 +78,7 @@ def execute_commands():
                 time = datetime.time(datetime.now())
                 print str(time) + ' press right'
                 k.press_key(k.right_key)
-                sleep(1)
+                sleep(0.5)
                 time = datetime.time(datetime.now())
                 print str(time) + ' release right'
                 k.release_key(k.right_key)
@@ -88,7 +88,7 @@ def execute_commands():
                 time = datetime.time(datetime.now())
                 print str(time) + ' press left'
                 k.press_key(k.left_key)
-                sleep(1)
+                sleep(0.5)
                 time = datetime.time(datetime.now())
                 print str(time) + ' release left'
                 k.release_key(k.left_key)
@@ -99,7 +99,7 @@ def execute_commands():
                 print str(time) + ' press space + right'
                 k.press_key(k.space)
                 k.press_key(k.right_key)
-                sleep(1)
+                sleep(0.5)
                 time = datetime.time(datetime.now())
                 print str(time) + ' release space + right'
                 k.release_key(k.space)
@@ -111,7 +111,7 @@ def execute_commands():
                 print str(time) + ' press space + left'
                 k.press_key(k.space)
                 k.press_key(k.left_key)
-                sleep(1)
+                sleep(0.5)
                 time = datetime.time(datetime.now())
                 print str(time) + ' release space + left'
                 k.release_key(k.space)

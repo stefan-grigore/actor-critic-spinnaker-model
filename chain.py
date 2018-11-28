@@ -14,16 +14,28 @@ from random import randint
 sim.setup(timestep=1.0)
 sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
 
-numberOfSteps = 10
+numberOfSteps = 11
+
+
 
 input1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input1")
 
-input2 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input2")
+
+
+ i n  p  u t2 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input2")
+
+
 
 pre_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="pre_pop")
-post_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="post_pop")
+
+
+p o s  t  _ pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="post_pop")
+
+
 
 sim.external_devices.activate_live_output_for(pre_pop, database_notify_host="localhost", database_notify_port_num=19996)
+
+
 sim.external_devices.activate_live_output_for(input1, database_notify_host="localhost", database_notify_port_num=19998)
 sim.external_devices.activate_live_output_for(post_pop, database_notify_host="localhost", database_notify_port_num=20000)
 sim.external_devices.activate_live_output_for(input2, database_notify_host="localhost", database_notify_port_num=20002)
@@ -136,6 +148,44 @@ def execute_commands():
 
         xOffset = MPx2 - MPx
         yOffset = MPy2 - MPy
+
+        image = pyautogui.screenshot(region=(0, 200, 1250, 700))
+        image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        cv2.imwrite("screenCapture" + str(step) + ".png", image)
+        meatboy_image = cv2.imread('meatboy.png')
+        meatgirl_image = cv2.imread('meatgirl.png')
+        large_image = cv2.imread("screenCapture" + str(step) + ".png")
+        method = cv2.TM_SQDIFF_NORMED
+        result = cv2.matchTemplate(meatboy_image.astype(np.float32),
+                                   large_image.astype(np.float32), method)
+        result2 = cv2.matchTemplate(meatgirl_image.astype(np.float32),
+                                    large_image.astype(np.float32), method)
+        mn1, _, mnLoc, _ = cv2.minMaxLoc(result)
+        mn21, _, mnLoc2, _ = cv2.minMaxLoc(result2)
+        MPx, MPy = mnLoc
+        MPx2, MPy2 = mnLoc2
+
+        xOffset1 = MPx2 - MPx
+        yOffset1 = MPy2 - MPy
+
+        while abs(xOffset - xOffset1) > 5 and abs(yOffset - yOffset1) > 5:
+            xOffset = xOffset1
+            yOffset = yOffset1
+            image = pyautogui.screenshot(region=(0, 200, 1250, 700))
+            image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+            cv2.imwrite("screenCapture" + str(step) + ".png", image)
+            meatboy_image = cv2.imread('meatboy.png')
+            meatgirl_image = cv2.imread('meatgirl.png')
+            large_image = cv2.imread("screenCapture" + str(step) + ".png")
+            method = cv2.TM_SQDIFF_NORMED
+            result = cv2.matchTemplate(meatboy_image.astype(np.float32),
+                                       large_image.astype(np.float32), method)
+            result2 = cv2.matchTemplate(meatgirl_image.astype(np.float32),
+                                        large_image.astype(np.float32), method)
+            mn1, _, mnLoc, _ = cv2.minMaxLoc(result)
+            mn21, _, mnLoc2, _ = cv2.minMaxLoc(result2)
+            MPx, MPy = mnLoc
+            MPx2, MPy2 = mnLoc2
         print '=============================='
         print 'xOffset: ' + str(xOffset)
         print 'yOffset: ' + str(yOffset)
@@ -320,6 +370,45 @@ MPx2, MPy2 = mnLoc2
 
 xOffset = MPx2 - MPx
 yOffset = MPy2 - MPy
+
+image = pyautogui.screenshot(region=(0, 200, 1250, 700))
+image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+cv2.imwrite("screenCapture" + str(step) + ".png", image)
+meatboy_image = cv2.imread('meatboy.png')
+meatgirl_image = cv2.imread('meatgirl.png')
+large_image = cv2.imread("screenCapture" + str(step) + ".png")
+method = cv2.TM_SQDIFF_NORMED
+result = cv2.matchTemplate(meatboy_image.astype(np.float32),
+                           large_image.astype(np.float32), method)
+result2 = cv2.matchTemplate(meatgirl_image.astype(np.float32),
+                            large_image.astype(np.float32), method)
+mn1, _, mnLoc, _ = cv2.minMaxLoc(result)
+mn21, _, mnLoc2, _ = cv2.minMaxLoc(result2)
+MPx, MPy = mnLoc
+MPx2, MPy2 = mnLoc2
+
+xOffset1 = MPx2 - MPx
+yOffset1 = MPy2 - MPy
+
+while abs(xOffset-xOffset1) > 5 and abs(yOffset-yOffset1) > 5:
+    xOffset = xOffset1
+    yOffset = yOffset1
+    image = pyautogui.screenshot(region=(0, 200, 1250, 700))
+    image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    cv2.imwrite("screenCapture" + str(step) + ".png", image)
+    meatboy_image = cv2.imread('meatboy.png')
+    meatgirl_image = cv2.imread('meatgirl.png')
+    large_image = cv2.imread("screenCapture" + str(step) + ".png")
+    method = cv2.TM_SQDIFF_NORMED
+    result = cv2.matchTemplate(meatboy_image.astype(np.float32),
+                               large_image.astype(np.float32), method)
+    result2 = cv2.matchTemplate(meatgirl_image.astype(np.float32),
+                                large_image.astype(np.float32), method)
+    mn1, _, mnLoc, _ = cv2.minMaxLoc(result)
+    mn21, _, mnLoc2, _ = cv2.minMaxLoc(result2)
+    MPx, MPy = mnLoc
+    MPx2, MPy2 = mnLoc2
+
 print '=============================='
 print 'xOffset: ' + str(xOffset)
 print 'yOffset: ' + str(yOffset)

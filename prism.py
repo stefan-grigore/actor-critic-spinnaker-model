@@ -20,6 +20,8 @@ input1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), l
 
 input2 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input2")
 
+first_spike_trigger = sim.Population(numberOfSteps, sim.external_devices.SpikeInjector(), label="first_spike_trigger")
+
 pre_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="pre_pop")
 post_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="post_pop")
 
@@ -27,6 +29,7 @@ sim.external_devices.activate_live_output_for(pre_pop, database_notify_host="loc
 sim.external_devices.activate_live_output_for(input1, database_notify_host="localhost", database_notify_port_num=19998)
 sim.external_devices.activate_live_output_for(post_pop, database_notify_host="localhost", database_notify_port_num=20000)
 sim.external_devices.activate_live_output_for(input2, database_notify_host="localhost", database_notify_port_num=20002)
+sim.external_devices.activate_live_output_for(first_spike_trigger, database_notify_host="localhost", database_notify_port_num=20004)
 
 timing_rule = sim.SpikePairRule(tau_plus=50.0, tau_minus=50.0,
                                 A_plus=0.001, A_minus=0.001)
@@ -43,6 +46,17 @@ input_projection1 = sim.Projection(input1, pre_pop, sim.OneToOneConnector(),
 
 input_projection2 = sim.Projection(input2, post_pop, sim.OneToOneConnector(),
                             synapse_type=sim.StaticSynapse(weight=5, delay=0))
+
+tupleList = []
+
+currentMove = 0
+for step in range(numberOfSteps):
+    for move in range(4):
+        tupleList.append((step, currentMove))
+        currentMove += 1
+
+first_spike_trigger_projection = sim.Projection(first_spike_trigger, pre_pop, sim.FromListConnector(tupleList),
+                                                synapse_type=sim.StaticSynapse(weight=5, delay=0))
 
 pre_pop.record(["spikes", "v"])
 post_pop.record(["spikes", "v"])
@@ -247,7 +261,9 @@ def execute_commands():
                 punishment = numberOfSteps - step + index + 1
                 print 'Punishing command ' + str(index) + ' which is ' + str(commands[index]) + ' with ' + str(punishment) + ' spikes'
                 for i in range(0, punishment):
+                    # fire post synaptic neuron
                     live_spikes_connection3.add_start_callback('input2', send_spike, commands[index])
+                    # then fire pre-synaptic neuron
                     live_spikes_connection2.add_start_callback('input1',
                                                                send_spike,
                                                                commands[index])
@@ -285,6 +301,9 @@ live_spikes_connection2 = sim.external_devices.SpynnakerLiveSpikesConnection(
 
 live_spikes_connection3 = sim.external_devices.SpynnakerLiveSpikesConnection(
     receive_labels=None, local_port=20002, send_labels=['input2'])
+
+live_spikes_connection4 = sim.external_devices.SpynnakerLiveSpikesConnection(
+    receive_labels=None, local_port=20004, send_labels=['first_spike_trigger'])
 
 live_spikes_connection.add_receive_callback("post_pop", receive_spikes)
 

@@ -368,56 +368,37 @@ def restarting_game_thread():
     press_key(k.left_key)
     press_key(k.enter_key)
 
-sleep(1)
-threading.Thread(target=restarting_game_thread).start()
-sleep(6.5)
-image = pyautogui.screenshot(region=(0, 250, 1250, 700))
-image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-cv2.imwrite("screenCapture0.png", image)
-meatboy_image = cv2.imread('meatboy.png')
-meatgirl_image = cv2.imread('meatgirl.png')
-large_image = cv2.imread("screenCapture0.png")
-method = cv2.TM_SQDIFF_NORMED
-result = cv2.matchTemplate(meatboy_image.astype(np.float32),
-                           large_image.astype(np.float32), method)
-result2 = cv2.matchTemplate(meatgirl_image.astype(np.float32),
-                            large_image.astype(np.float32), method)
-mn, _, mnLoc, _ = cv2.minMaxLoc(result)
-mn2, _, mnLoc2, _ = cv2.minMaxLoc(result2)
-MPx, MPy = mnLoc
-MPx2, MPy2 = mnLoc2
 
-xOffset = MPx2 - MPx
-yOffset = MPy2 - MPy
-
-image = pyautogui.screenshot(region=(0, 250, 1250, 700))
-image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-cv2.imwrite("screenCapture0.png", image)
-meatboy_image = cv2.imread('meatboy.png')
-meatgirl_image = cv2.imread('meatgirl.png')
-large_image = cv2.imread("screenCapture0.png")
-method = cv2.TM_SQDIFF_NORMED
-result = cv2.matchTemplate(meatboy_image.astype(np.float32),
-                           large_image.astype(np.float32), method)
-result2 = cv2.matchTemplate(meatgirl_image.astype(np.float32),
-                            large_image.astype(np.float32), method)
-mn1, _, mnLoc, _ = cv2.minMaxLoc(result)
-mn21, _, mnLoc2, _ = cv2.minMaxLoc(result2)
-MPx, MPy = mnLoc
-MPx2, MPy2 = mnLoc2
-
-xOffset1 = MPx2 - MPx
-yOffset1 = MPy2 - MPy
-
-while abs(xOffset-xOffset1) > 5 and abs(yOffset-yOffset1) > 5:
-    xOffset = xOffset1
-    yOffset = yOffset1
+def get_first_action():
+    global nextAction, step
+    sleep(1)
+    restarting_game_thread()
+    sleep(1)
     image = pyautogui.screenshot(region=(0, 250, 1250, 700))
     image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-    cv2.imwrite("screenCapture" + str(step) + ".png", image)
+    cv2.imwrite("screenCapture0.png", image)
     meatboy_image = cv2.imread('meatboy.png')
     meatgirl_image = cv2.imread('meatgirl.png')
-    large_image = cv2.imread("screenCapture" + str(step) + ".png")
+    large_image = cv2.imread("screenCapture0.png")
+    method = cv2.TM_SQDIFF_NORMED
+    result = cv2.matchTemplate(meatboy_image.astype(np.float32),
+                               large_image.astype(np.float32), method)
+    result2 = cv2.matchTemplate(meatgirl_image.astype(np.float32),
+                                large_image.astype(np.float32), method)
+    mn, _, mnLoc, _ = cv2.minMaxLoc(result)
+    mn2, _, mnLoc2, _ = cv2.minMaxLoc(result2)
+    MPx, MPy = mnLoc
+    MPx2, MPy2 = mnLoc2
+
+    xOffset = MPx2 - MPx
+    yOffset = MPy2 - MPy
+
+    image = pyautogui.screenshot(region=(0, 250, 1250, 700))
+    image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    cv2.imwrite("screenCapture0.png", image)
+    meatboy_image = cv2.imread('meatboy.png')
+    meatgirl_image = cv2.imread('meatgirl.png')
+    large_image = cv2.imread("screenCapture0.png")
     method = cv2.TM_SQDIFF_NORMED
     result = cv2.matchTemplate(meatboy_image.astype(np.float32),
                                large_image.astype(np.float32), method)
@@ -428,46 +409,69 @@ while abs(xOffset-xOffset1) > 5 and abs(yOffset-yOffset1) > 5:
     MPx, MPy = mnLoc
     MPx2, MPy2 = mnLoc2
 
-print '=============================='
-print 'xOffset: ' + str(xOffset)
-print 'yOffset: ' + str(yOffset)
+    xOffset1 = MPx2 - MPx
+    yOffset1 = MPy2 - MPy
 
-trows, tcols = meatboy_image.shape[:2]
-trows2, tcols2 = meatgirl_image.shape[:2]
+    while abs(xOffset-xOffset1) > 5 and abs(yOffset-yOffset1) > 5:
+        xOffset = xOffset1
+        yOffset = yOffset1
+        image = pyautogui.screenshot(region=(0, 250, 1250, 700))
+        image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        cv2.imwrite("screenCapture" + str(step) + ".png", image)
+        meatboy_image = cv2.imread('meatboy.png')
+        meatgirl_image = cv2.imread('meatgirl.png')
+        large_image = cv2.imread("screenCapture" + str(step) + ".png")
+        method = cv2.TM_SQDIFF_NORMED
+        result = cv2.matchTemplate(meatboy_image.astype(np.float32),
+                                   large_image.astype(np.float32), method)
+        result2 = cv2.matchTemplate(meatgirl_image.astype(np.float32),
+                                    large_image.astype(np.float32), method)
+        mn1, _, mnLoc, _ = cv2.minMaxLoc(result)
+        mn21, _, mnLoc2, _ = cv2.minMaxLoc(result2)
+        MPx, MPy = mnLoc
+        MPx2, MPy2 = mnLoc2
 
-cv2.rectangle(large_image, (MPx, MPy), (MPx + tcols, MPy + trows),
-              (0, 255, 0), 2)
-cv2.rectangle(large_image, (MPx2, MPy2),
-              (MPx2 + tcols2, MPy2 + trows2), (0, 255, 0), 2)
-cv2.imwrite("screenCapture" + str(step) + ".png", large_image)
-# too low
-if yOffset < 0:
-    # too much to the left
-    if xOffset > 0:
-        print 'jump right'
-        nextAction = (step-1) * 4 + 2
-    # too much to the right
+    print '=============================='
+    print 'xOffset: ' + str(xOffset)
+    print 'yOffset: ' + str(yOffset)
+
+    trows, tcols = meatboy_image.shape[:2]
+    trows2, tcols2 = meatgirl_image.shape[:2]
+
+    cv2.rectangle(large_image, (MPx, MPy), (MPx + tcols, MPy + trows),
+                  (0, 255, 0), 2)
+    cv2.rectangle(large_image, (MPx2, MPy2),
+                  (MPx2 + tcols2, MPy2 + trows2), (0, 255, 0), 2)
+    cv2.imwrite("screenCapture" + str(step) + ".png", large_image)
+    # too low
+    if yOffset < 0:
+        # too much to the left
+        if xOffset > 0:
+            print 'jump right'
+            nextAction = (step-1) * 4 + 2
+        # too much to the right
+        else:
+            print 'jump left'
+            nextAction = (step-1) * 4 + 3
     else:
-        print 'jump left'
-        nextAction = (step-1) * 4 + 3
-else:
-    # too much to the left
-    if xOffset > 0:
-        print 'go right'
-        nextAction = (step-1) * 4
-    # too much to the right
-    else:
-        print 'go left'
-        nextAction = (step-1) * 4 + 1
-print 'Next action: ' + str(nextAction)
+        # too much to the left
+        if xOffset > 0:
+            print 'go right'
+            nextAction = (step-1) * 4
+        # too much to the right
+        else:
+            print 'go left'
+            nextAction = (step-1) * 4 + 1
+    print 'Next action: ' + str(nextAction)
+
 
 bestActions = {}
 
 
 def simulation_thread():
     global currentStep, checkingWeights, fired, bestActions
+    get_first_action()
     print 'Simualtion thread started'
-    sleep(12)
     print 'Begin sending moves'
     for i in range(numberOfSteps):
         print 'Step ' + str(i) + ' in simulation thread'

@@ -9,6 +9,7 @@ import numpy as np
 import pyautogui
 from datetime import datetime
 from random import randint
+import sys
 
 
 sim.setup(timestep=1.0)
@@ -195,6 +196,36 @@ def execute_commands():
         print '=============================='
         print 'xOffset: ' + str(xOffset)
         print 'yOffset: ' + str(yOffset)
+
+        # if very close to the goal just go directly to it
+        if abs(xOffset) < 200 and abs(yOffset) < 20:
+            print 'We\'re close to the goal'
+            # too much to the left
+            # too much to the left
+
+            if xOffset > 0:
+                historyStep += ' went right, '
+                time = datetime.time(datetime.now())
+                print str(time) + ' press right'
+                k.press_key(k.right_key)
+                sleep(1)
+                time = datetime.time(datetime.now())
+                print str(time) + ' release right'
+            # too much to the right
+            else:
+                historyStep += ' went left, '
+                time = datetime.time(datetime.now())
+                print str(time) + ' press left'
+                k.press_key(k.left_key)
+                sleep(1)
+                time = datetime.time(datetime.now())
+                print str(time) + ' release left'
+                k.release_key(k.left_key)
+            historyStep += ' won the game!'
+            for historyStep in history:
+                    print historyStep
+            sys.exit()
+
 
         trows, tcols = meatboy_image.shape[:2]
         trows2, tcols2 = meatgirl_image.shape[:2]
@@ -472,6 +503,7 @@ def simulation_thread():
     global currentStep, checkingWeights, fired, bestActions
     get_first_action()
     print 'Simualtion thread started'
+    sleep(1)
     print 'Begin sending moves'
     for i in range(numberOfSteps):
         print 'Step ' + str(i) + ' in simulation thread'
@@ -484,7 +516,7 @@ def simulation_thread():
                     j)
                 send_spike('first_spike_trigger', live_spikes_connection4, j)
                 fired = False
-                sleep(1)
+                sleep(0.1)
                 print 'Best action is ' + str(bestActions[j])
                 checkingWeights = False
             else:

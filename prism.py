@@ -56,7 +56,7 @@ for step in range(numberOfSteps):
         currentMove += 1
 
 first_spike_trigger_projection = sim.Projection(first_spike_trigger, pre_pop, sim.FromListConnector(tupleList),
-                                                synapse_type=sim.StaticSynapse(weight=5, delay=0))
+                                                synapse_type=sim.StaticSynapse(weight=5, delay=2))
 
 pre_pop.record(["spikes", "v"])
 post_pop.record(["spikes", "v"])
@@ -64,7 +64,6 @@ post_pop.record(["spikes", "v"])
 k = PyKeyboard()
 
 step = 1
-firedIndex = []
 history = []
 nextAction = 0
 
@@ -77,11 +76,16 @@ exploring = False
 
 
 def execute_commands():
-    global step, firedIndex, nextAction, prevXOffset, prevYOffset, exploring, didExplore
+    global step, nextAction, prevXOffset, prevYOffset, exploring, didExplore, bestActions, historyStep
+    actionsArray = []
     try:
         print 'Executing commands for step: ' + str(step)
         historyStep = 'step ' + str(step) + ': '
-        commands = list(set(firedIndex))
+        print 'Actions ' + str(bestActions)
+        for index in range(len(bestActions)):
+            actionsArray.append(bestActions[index])
+        commands = list(set(actionsArray))
+        print 'Commands: \n' + str(commands)
         commands.sort()
         for neuron_id in commands:
             print 'doing ' + str(neuron_id)
@@ -227,11 +231,11 @@ def execute_commands():
             chosenAction = randint(0, 3)
             # while the explored action belongs to the same class as the action suggested by the environment
             # try to pick another action to explore
-            while chosenAction%2 is nextAction%2:
+            while chosenAction % 2 is nextAction % 2:
                 chosenAction = randint(0, 3)
             nextAction = chosenAction
             nextAction = step * 4 + nextAction
-        print 'Next action: ' + str(nextAction%4)
+        print 'Next action: ' + str(nextAction)
         print 'Checking progress'
         if step is 1:
             prevXOffset = abs(xOffset)
@@ -241,12 +245,13 @@ def execute_commands():
         elif abs(xOffset) + 5 < prevXOffset or abs(yOffset) + 5 < prevYOffset:
             exploring = False
             historyStep += ' better than previous step'
+            print 'better than previous step'
             # reward
             for index in range(0, len(commands)):
                 reward = numberOfSteps - step + index + 1
                 print 'Rewarding command ' + str(index) + ' which is ' + str(commands[index]) + ' with ' + str(reward) + ' spikes'
                 for i in range(0, reward):
-                    live_spikes_connection2.add_start_callback('input1', send_spike, commands[index])
+                    send_spike('input1', live_spikes_connection2, commands[index])
                 reward -= 1
                 print 'Previous xOffset ' + str(prevXOffset)
                 print 'Previous yOffset ' + str(prevYOffset)
@@ -256,17 +261,17 @@ def execute_commands():
             if not didExplore:
                 exploring = True
             historyStep += ' worse than previous step'
+            print 'worse than previous step'
             # punishment
             for index in range(0, len(commands)):
                 punishment = numberOfSteps - step + index + 1
                 print 'Punishing command ' + str(index) + ' which is ' + str(commands[index]) + ' with ' + str(punishment) + ' spikes'
                 for i in range(0, punishment):
                     # fire post synaptic neuron
-                    live_spikes_connection3.add_start_callback('input2', send_spike, commands[index])
+                    send_spike('input2', live_spikes_connection3, commands[index])
                     # then fire pre-synaptic neuron
-                    live_spikes_connection2.add_start_callback('input1',
-                                                               send_spike,
-                                                               commands[index])
+                    send_spike('input1', live_spikes_connection2, commands[index])
+
                 punishment -= 1
             print 'Previous xOffset ' + str(prevXOffset)
             print 'Previous yOffset ' + str(prevYOffset)
@@ -279,18 +284,26 @@ def execute_commands():
         pass
 
 
+fired = False
+checkingWeights = False
+currentStep = 0
+
+
 def receive_spikes(label, time, neuron_ids):
-    global firedIndex
+    global fired, currentStep, bestActions, checkingWeights
     try:
-        print str(neuron_ids)
+        print 'Received spikes: ' + str(neuron_ids)
+        print 'Checking weights: ' + str(checkingWeights)
         for neuron_id in neuron_ids:
-            print 'fired ' + str(neuron_id)
-            firedIndex.append(neuron_id)
+            if checkingWeights and not fired:
+                'We are checking the weights'
+                bestActions[currentStep] = neuron_id
+                print 'Set best action of step ' + str(currentStep) + ' to be ' + str(bestActions[currentStep])
+                fired = True
+                break
     except RuntimeError:
         pass
 
-
-numberOfSpikes = 1
 
 
 live_spikes_connection = sim.external_devices.SpynnakerLiveSpikesConnection(
@@ -311,8 +324,6 @@ live_spikes_connection.add_receive_callback("post_pop", receive_spikes)
 def send_spike(label, sender, index):
     sender.send_spike(label, index, send_full_keys=True)
 
-
-initialWeights = stdp_projection.getWeights()
 
 weightRight = []
 weightLeft = []
@@ -340,7 +351,8 @@ class Step:
 listOfStepObjects = [Step() for i in range(numberOfSteps)]
 
 
-def restarting_simulation_thread():
+def restarting_game_thread():
+    print 'Restarting game'
     press_key(k.escape_key)
     press_key(k.down_key)
     press_key(k.enter_key)
@@ -357,7 +369,7 @@ def restarting_simulation_thread():
     press_key(k.enter_key)
 
 sleep(1)
-threading.Thread(target=restarting_simulation_thread).start()
+threading.Thread(target=restarting_game_thread).start()
 sleep(6.5)
 image = pyautogui.screenshot(region=(0, 250, 1250, 700))
 image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
@@ -449,53 +461,44 @@ else:
         nextAction = (step-1) * 4 + 1
 print 'Next action: ' + str(nextAction)
 
+bestActions = {}
 
-for i in range(numberOfSteps):
-    for j in range(i+1):
-        if j != i:
-            action = weights[j*4:(j+1)*4].argmax()
-            if action == 0:
-                print 'go right'
-                live_spikes_connection2.add_start_callback('input1',
-                                                           send_spike, j*4)
-            if action == 1:
-                print 'go left'
-                live_spikes_connection2.add_start_callback('input1',
-                                                           send_spike, j*4 + 1)
-            if action == 2:
-                print 'jump right'
-                live_spikes_connection2.add_start_callback('input1',
-                                                           send_spike, j*4 + 2)
-            if action == 3:
-                print 'jump left'
-                live_spikes_connection2.add_start_callback('input1',
-                                                           send_spike, j*4 + 3)
-        else:
-            live_spikes_connection2.add_start_callback('input1',
-                                                       send_spike,
-                                                       nextAction)
 
-    sim.run(2000 + i*2000)
-    live_spikes_connection2.clear_start_resume_callbacks('input1')
-    sleep(1.5)
-    weights = stdp_projection.getWeights()
-    print weights
-    execute_commands()
-    print 'Executing rewards / punishments'
-    sim.run(2000 + i*2000)
-    live_spikes_connection2.clear_start_resume_callbacks('input1')
-    weights = stdp_projection.getWeights()
-    print weights
-    sleep(1)
-    for j in range(numberOfSteps):
-        listOfStepObjects[j].weightPlotRight.append(weights[j*4])
-        listOfStepObjects[j].weightPlotLeft.append(weights[j*4+1])
-        listOfStepObjects[j].weightPlotJumpRight.append(weights[j*4+2])
-        listOfStepObjects[j].weightPlotJumpLeft.append(weights[j*4+3])
+def simulation_thread():
+    global currentStep, checkingWeights, fired, bestActions
+    print 'Simualtion thread started'
+    sleep(12)
+    print 'Begin sending moves'
+    for i in range(numberOfSteps):
+        print 'Step ' + str(i) + ' in simulation thread'
+        for j in range(i+1):
+            if j != i:
+                print 'Getting best action for move ' + str(j)
+                checkingWeights = True
+                currentStep = j
+                print 'sending spike to trigger first spike action for move ' + str(
+                    j)
+                send_spike('first_spike_trigger', live_spikes_connection4, j)
+                fired = False
+                sleep(1)
+                print 'Best action is ' + str(bestActions[j])
+                checkingWeights = False
+            else:
+                print 'sending spike corresponding to next move ' + str(j) + ' which is ' + str(nextAction)
+                bestActions[j] = nextAction
+                send_spike('input1', live_spikes_connection2, nextAction)
 
-    firedIndex = []
-    if i is not numberOfSteps:
-        threading.Thread(target=restarting_simulation_thread).start()
+        sleep(1.5)
+        print 'Executing commands'
+        execute_commands()
+        sleep(1)
+
+        if i is not numberOfSteps:
+            restarting_game_thread()
+
+
+threading.Thread(target=simulation_thread).start()
+sim.run(numberOfSteps * 10000)
 
 neo = post_pop.get_data(variables=["spikes", "v"])
 spikes2 = neo.segments[0].spiketrains

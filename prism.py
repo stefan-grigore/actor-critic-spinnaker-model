@@ -77,62 +77,52 @@ exploring = False
 
 
 def execute_commands():
-    global step, nextAction, prevXOffset, prevYOffset, exploring, didExplore, bestActions, historyStep
+    global step, nextAction, prevXOffset, prevYOffset, exploring, didExplore, bestActions, historyStep, history
     actionsArray = []
     try:
         print 'Executing commands for step: ' + str(step)
         historyStep = 'step ' + str(step) + ': '
-        print 'Actions ' + str(bestActions)
         for index in range(len(bestActions)):
             actionsArray.append(bestActions[index])
         commands = list(set(actionsArray))
         print 'Commands: \n' + str(commands)
         commands.sort()
         for neuron_id in commands:
-            print 'doing ' + str(neuron_id)
             neuron_id %= 4
             if str(neuron_id) is '0':
                 sleep(0.15)
                 historyStep += ' went right, '
                 time = datetime.time(datetime.now())
-                print str(time) + ' press right'
                 k.press_key(k.right_key)
                 sleep(0.5)
                 time = datetime.time(datetime.now())
-                print str(time) + ' release right'
                 k.release_key(k.right_key)
             if str(neuron_id) is '1':
                 sleep(0.15)
                 historyStep += ' went left, '
                 time = datetime.time(datetime.now())
-                print str(time) + ' press left'
                 k.press_key(k.left_key)
                 sleep(0.5)
                 time = datetime.time(datetime.now())
-                print str(time) + ' release left'
                 k.release_key(k.left_key)
             if str(neuron_id) is '2':
                 sleep(0.15)
                 historyStep += ' jumped right, '
                 time = datetime.time(datetime.now())
-                print str(time) + ' press space + right'
                 k.press_key(k.space)
                 k.press_key(k.right_key)
                 sleep(0.5)
                 time = datetime.time(datetime.now())
-                print str(time) + ' release space + right'
                 k.release_key(k.space)
                 k.release_key(k.right_key)
             if str(neuron_id) is '3':
                 sleep(0.15)
                 historyStep += ' jumped left, '
                 time = datetime.time(datetime.now())
-                print str(time) + ' press space + left'
                 k.press_key(k.space)
                 k.press_key(k.left_key)
                 sleep(0.5)
                 time = datetime.time(datetime.now())
-                print str(time) + ' release space + left'
                 k.release_key(k.space)
                 k.release_key(k.left_key)
         sleep(0.5)
@@ -206,22 +196,19 @@ def execute_commands():
             if xOffset > 0:
                 historyStep += ' went right, '
                 time = datetime.time(datetime.now())
-                print str(time) + ' press right'
                 k.press_key(k.right_key)
                 sleep(1)
                 time = datetime.time(datetime.now())
-                print str(time) + ' release right'
             # too much to the right
             else:
                 historyStep += ' went left, '
                 time = datetime.time(datetime.now())
-                print str(time) + ' press left'
                 k.press_key(k.left_key)
                 sleep(1)
                 time = datetime.time(datetime.now())
-                print str(time) + ' release left'
                 k.release_key(k.left_key)
             historyStep += ' won the game!'
+            history.append(historyStep)
             for historyStep in history:
                     print historyStep
             sys.exit()
@@ -280,12 +267,9 @@ def execute_commands():
             # reward
             for index in range(0, len(commands)):
                 reward = numberOfSteps - step + index + 1
-                print 'Rewarding command ' + str(index) + ' which is ' + str(commands[index]) + ' with ' + str(reward) + ' spikes'
                 for i in range(0, reward):
                     send_spike('input1', live_spikes_connection2, commands[index])
                 reward -= 1
-                print 'Previous xOffset ' + str(prevXOffset)
-                print 'Previous yOffset ' + str(prevYOffset)
                 prevXOffset = abs(xOffset)
                 prevYOffset = abs(yOffset)
         else:
@@ -296,7 +280,6 @@ def execute_commands():
             # punishment
             for index in range(0, len(commands)):
                 punishment = numberOfSteps - step + index + 1
-                print 'Punishing command ' + str(index) + ' which is ' + str(commands[index]) + ' with ' + str(punishment) + ' spikes'
                 for i in range(0, punishment):
                     # fire post synaptic neuron
                     send_spike('input2', live_spikes_connection3, commands[index])
@@ -304,8 +287,6 @@ def execute_commands():
                     send_spike('input1', live_spikes_connection2, commands[index])
 
                 punishment -= 1
-            print 'Previous xOffset ' + str(prevXOffset)
-            print 'Previous yOffset ' + str(prevYOffset)
             prevXOffset = abs(xOffset)
             prevYOffset = abs(yOffset)
         didExplore = exploring
@@ -323,8 +304,6 @@ currentStep = 0
 def receive_spikes(label, time, neuron_ids):
     global fired, currentStep, bestActions, checkingWeights
     try:
-        print 'Received spikes: ' + str(neuron_ids)
-        print 'Checking weights: ' + str(checkingWeights)
         for neuron_id in neuron_ids:
             if checkingWeights and not fired:
                 'We are checking the weights'
@@ -503,29 +482,23 @@ def simulation_thread():
     global currentStep, checkingWeights, fired, bestActions
     get_first_action()
     print 'Simualtion thread started'
-    sleep(1)
+    sleep(3)
     print 'Begin sending moves'
     for i in range(numberOfSteps):
         print 'Step ' + str(i) + ' in simulation thread'
         for j in range(i+1):
             if j != i:
-                print 'Getting best action for move ' + str(j)
                 checkingWeights = True
                 currentStep = j
-                print 'sending spike to trigger first spike action for move ' + str(
-                    j)
                 send_spike('first_spike_trigger', live_spikes_connection4, j)
                 fired = False
                 sleep(0.1)
-                print 'Best action is ' + str(bestActions[j])
                 checkingWeights = False
             else:
-                print 'sending spike corresponding to next move ' + str(j) + ' which is ' + str(nextAction)
                 bestActions[j] = nextAction
                 send_spike('input1', live_spikes_connection2, nextAction)
 
         sleep(1.5)
-        print 'Executing commands'
         execute_commands()
         sleep(1)
 
@@ -541,9 +514,6 @@ spikes2 = neo.segments[0].spiketrains
 v2 = neo.segments[0].filter(name='v')[0]
 
 sim.end()
-
-for historyStep in history:
-    print historyStep
 
 # for j in range(numberOfSteps):
 #     if (listOfStepObjects[j].weightPlotRight.count(listOfStepObjects[j].weightPlotRight[0]) != len(listOfStepObjects[j].weightPlotRight)):

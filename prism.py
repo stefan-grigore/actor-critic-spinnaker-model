@@ -1,6 +1,4 @@
 import pyNN.spiNNaker as sim
-import pyNN.utility.plotting as plot
-import matplotlib.pyplot as plt
 import threading
 from time import sleep
 from pykeyboard import PyKeyboard
@@ -11,26 +9,23 @@ from datetime import datetime
 from random import randint
 import sys
 
-
 sim.setup(timestep=1.0)
 sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
 
 numberOfSteps = 12
+numberOfActions = 4
 
-input1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input1")
+stateSpikeInjector = sim.Population(numberOfSteps * numberOfActions, sim.external_devices.SpikeInjector(), label="stateSpikeInjector")
+actorSpikeInjector = sim.Population(numberOfSteps * numberOfActions, sim.external_devices.SpikeInjector(), label="actorSpikeInjector")
+statePopulation = sim.Population(numberOfSteps * numberOfActions, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="statePopulation")
+actorPopulation = sim.Population(numberOfSteps * numberOfActions, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="actorPopulation")
+firstSpikeTrigger = sim.Population(numberOfSteps, sim.external_devices.SpikeInjector(), label="firstSpikeTrigger")
 
-input2 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input2")
-
-first_spike_trigger = sim.Population(numberOfSteps, sim.external_devices.SpikeInjector(), label="first_spike_trigger")
-
-pre_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="pre_pop")
-post_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="post_pop")
-
-sim.external_devices.activate_live_output_for(pre_pop, database_notify_host="localhost", database_notify_port_num=19996)
-sim.external_devices.activate_live_output_for(input1, database_notify_host="localhost", database_notify_port_num=19998)
-sim.external_devices.activate_live_output_for(post_pop, database_notify_host="localhost", database_notify_port_num=20000)
-sim.external_devices.activate_live_output_for(input2, database_notify_host="localhost", database_notify_port_num=20002)
-sim.external_devices.activate_live_output_for(first_spike_trigger, database_notify_host="localhost", database_notify_port_num=20004)
+sim.external_devices.activate_live_output_for(statePopulation, database_notify_host="localhost", database_notify_port_num=19996)
+sim.external_devices.activate_live_output_for(stateSpikeInjector, database_notify_host="localhost", database_notify_port_num=19998)
+sim.external_devices.activate_live_output_for(actorPopulation, database_notify_host="localhost", database_notify_port_num=20000)
+sim.external_devices.activate_live_output_for(actorSpikeInjector, database_notify_host="localhost", database_notify_port_num=20002)
+sim.external_devices.activate_live_output_for(firstSpikeTrigger, database_notify_host="localhost", database_notify_port_num=20004)
 
 timing_rule = sim.SpikePairRule(tau_plus=50.0, tau_minus=50.0,
                                 A_plus=0.001, A_minus=0.001)
@@ -39,28 +34,37 @@ stdp_model = sim.STDPMechanism(timing_dependence=timing_rule,
                                weight_dependence=weight_rule,
                                weight=2, delay=1)
 
-stdp_projection = sim.Projection(pre_pop, post_pop, sim.OneToOneConnector(),
+stdp_projection = sim.Projection(statePopulation, actorPopulation, sim.OneToOneConnector(),
                                  synapse_type=stdp_model)
 
-input_projection1 = sim.Projection(input1, pre_pop, sim.OneToOneConnector(),
-                            synapse_type=sim.StaticSynapse(weight=5, delay=2))
+state_projection = sim.Projection(stateSpikeInjector, statePopulation, sim.OneToOneConnector(),
+                                  synapse_type=sim.StaticSynapse(weight=5, delay=2))
 
-input_projection2 = sim.Projection(input2, post_pop, sim.OneToOneConnector(),
-                            synapse_type=sim.StaticSynapse(weight=5, delay=0))
+actorProjection = sim.Projection(actorSpikeInjector, actorPopulation, sim.OneToOneConnector(),
+                                 synapse_type=sim.StaticSynapse(weight=5, delay=0))
 
-tupleList = []
+connectionList = []
+
+for step in range(numberOfSteps-1):
+    for action in range(numberOfActions):
+        connectionList.append((action, action + numberOfActions))
+
+moves_projection = sim.Projection(actorPopulation, actorPopulation, sim.FromListConnector(connectionList),
+                                  synapse_type=sim.StaticSynapse(weight=5, delay=2))
+
+connectionList = []
 
 currentMove = 0
 for step in range(numberOfSteps):
-    for move in range(4):
-        tupleList.append((step, currentMove))
+    for action in range(numberOfActions):
+        connectionList.append((step, currentMove))
         currentMove += 1
 
-first_spike_trigger_projection = sim.Projection(first_spike_trigger, pre_pop, sim.FromListConnector(tupleList),
+first_spike_trigger_projection = sim.Projection(firstSpikeTrigger, statePopulation, sim.FromListConnector(connectionList),
                                                 synapse_type=sim.StaticSynapse(weight=5, delay=2))
 
-pre_pop.record(["spikes", "v"])
-post_pop.record(["spikes", "v"])
+statePopulation.record(["spikes", "v"])
+actorPopulation.record(["spikes", "v"])
 
 k = PyKeyboard()
 
@@ -85,6 +89,7 @@ def execute_commands():
         for index in range(len(bestActions)):
             actionsArray.append(bestActions[index])
         commands = list(set(actionsArray))
+        commands = [x for x in commands if x != -1]
         print 'Commands: \n' + str(commands)
         commands.sort()
         for neuron_id in commands:
@@ -188,7 +193,7 @@ def execute_commands():
         print 'yOffset: ' + str(yOffset)
 
         # if very close to the goal just go directly to it
-        if abs(xOffset) < 200 and abs(yOffset) < 20:
+        if abs(xOffset) < 300 and abs(yOffset) < 20:
             print 'We\'re close to the goal'
             # too much to the left
             # too much to the left
@@ -268,7 +273,7 @@ def execute_commands():
             for index in range(0, len(commands)):
                 reward = numberOfSteps - step + index + 1
                 for i in range(0, reward):
-                    send_spike('input1', live_spikes_connection2, commands[index])
+                    send_spike('stateSpikeInjector', live_spikes_connection2, commands[index])
                 reward -= 1
                 prevXOffset = abs(xOffset)
                 prevYOffset = abs(yOffset)
@@ -282,9 +287,9 @@ def execute_commands():
                 punishment = numberOfSteps - step + index + 1
                 for i in range(0, punishment):
                     # fire post synaptic neuron
-                    send_spike('input2', live_spikes_connection3, commands[index])
+                    send_spike('actorSpikeInjector', live_spikes_connection3, commands[index])
                     # then fire pre-synaptic neuron
-                    send_spike('input1', live_spikes_connection2, commands[index])
+                    send_spike('stateSpikeInjector', live_spikes_connection2, commands[index])
 
                 punishment -= 1
             prevXOffset = abs(xOffset)
@@ -317,18 +322,18 @@ def receive_spikes(label, time, neuron_ids):
 
 
 live_spikes_connection = sim.external_devices.SpynnakerLiveSpikesConnection(
-    receive_labels=["post_pop"], local_port=20000, send_labels=None)
+    receive_labels=["actorPopulation"], local_port=20000, send_labels=None)
 
 live_spikes_connection2 = sim.external_devices.SpynnakerLiveSpikesConnection(
-    receive_labels=None, local_port=19998, send_labels=['input1'])
+    receive_labels=None, local_port=19998, send_labels=['stateSpikeInjector'])
 
 live_spikes_connection3 = sim.external_devices.SpynnakerLiveSpikesConnection(
-    receive_labels=None, local_port=20002, send_labels=['input2'])
+    receive_labels=None, local_port=20002, send_labels=['actorSpikeInjector'])
 
 live_spikes_connection4 = sim.external_devices.SpynnakerLiveSpikesConnection(
-    receive_labels=None, local_port=20004, send_labels=['first_spike_trigger'])
+    receive_labels=None, local_port=20004, send_labels=['firstSpikeTrigger'])
 
-live_spikes_connection.add_receive_callback("post_pop", receive_spikes)
+live_spikes_connection.add_receive_callback("actorPopulation", receive_spikes)
 
 
 def send_spike(label, sender, index):
@@ -490,17 +495,21 @@ def simulation_thread():
             if j != i:
                 checkingWeights = True
                 currentStep = j
-                send_spike('first_spike_trigger', live_spikes_connection4, j)
+                send_spike('firstSpikeTrigger', live_spikes_connection4, j)
                 fired = False
                 sleep(0.1)
                 checkingWeights = False
             else:
                 bestActions[j] = nextAction
-                send_spike('input1', live_spikes_connection2, nextAction)
+                send_spike('stateSpikeInjector', live_spikes_connection2, nextAction)
 
         sleep(1.5)
         execute_commands()
         sleep(1)
+        # erase best actions
+        # bestActions[len(bestActions)] holds action suggested by environment
+        for actionIndex in range(len(bestActions) - 1):
+            bestActions[actionIndex] = -1
 
         if i is not numberOfSteps:
             restarting_game_thread()
@@ -509,7 +518,7 @@ def simulation_thread():
 threading.Thread(target=simulation_thread).start()
 sim.run(numberOfSteps * 10000)
 
-neo = post_pop.get_data(variables=["spikes", "v"])
+neo = actorPopulation.get_data(variables=["spikes", "v"])
 spikes2 = neo.segments[0].spiketrains
 v2 = neo.segments[0].filter(name='v')[0]
 

@@ -16,12 +16,12 @@ sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
 
 numberOfSteps = 12
 
-input1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input1")
+input1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="stateSpikeInjector")
 
-input2 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="input2")
+input2 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="actorSpikeInjector")
 
-pre_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="pre_pop")
-post_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="post_pop")
+pre_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="statePopulation")
+post_pop = sim.Population(numberOfSteps*4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="actorPopulation")
 
 sim.external_devices.activate_live_output_for(pre_pop, database_notify_host="localhost", database_notify_port_num=19996)
 sim.external_devices.activate_live_output_for(input1, database_notify_host="localhost", database_notify_port_num=19998)
@@ -232,7 +232,7 @@ def execute_commands():
                 reward = numberOfSteps - step + index + 1
                 print 'Rewarding command ' + str(index) + ' which is ' + str(commands[index]) + ' with ' + str(reward) + ' spikes'
                 for i in range(0, reward):
-                    live_spikes_connection2.add_start_callback('input1', send_spike, commands[index])
+                    live_spikes_connection2.add_start_callback('stateSpikeInjector', send_spike, commands[index])
                 reward -= 1
                 print 'Previous xOffset ' + str(prevXOffset)
                 print 'Previous yOffset ' + str(prevYOffset)
@@ -247,8 +247,8 @@ def execute_commands():
                 punishment = numberOfSteps - step + index + 1
                 print 'Punishing command ' + str(index) + ' which is ' + str(commands[index]) + ' with ' + str(punishment) + ' spikes'
                 for i in range(0, punishment):
-                    live_spikes_connection3.add_start_callback('input2', send_spike, commands[index])
-                    live_spikes_connection2.add_start_callback('input1',
+                    live_spikes_connection3.add_start_callback('actorSpikeInjector', send_spike, commands[index])
+                    live_spikes_connection2.add_start_callback('stateSpikeInjector',
                                                                send_spike,
                                                                commands[index])
                 punishment -= 1
@@ -278,15 +278,15 @@ numberOfSpikes = 1
 
 
 live_spikes_connection = sim.external_devices.SpynnakerLiveSpikesConnection(
-    receive_labels=["post_pop"], local_port=20000, send_labels=None)
+    receive_labels=["actorPopulation"], local_port=20000, send_labels=None)
 
 live_spikes_connection2 = sim.external_devices.SpynnakerLiveSpikesConnection(
-    receive_labels=None, local_port=19998, send_labels=['input1'])
+    receive_labels=None, local_port=19998, send_labels=['stateSpikeInjector'])
 
 live_spikes_connection3 = sim.external_devices.SpynnakerLiveSpikesConnection(
-    receive_labels=None, local_port=20002, send_labels=['input2'])
+    receive_labels=None, local_port=20002, send_labels=['actorSpikeInjector'])
 
-live_spikes_connection.add_receive_callback("post_pop", receive_spikes)
+live_spikes_connection.add_receive_callback("actorPopulation", receive_spikes)
 
 
 def send_spike(label, sender, index):
@@ -437,34 +437,34 @@ for i in range(numberOfSteps):
             action = weights[j*4:(j+1)*4].argmax()
             if action == 0:
                 print 'go right'
-                live_spikes_connection2.add_start_callback('input1',
+                live_spikes_connection2.add_start_callback('stateSpikeInjector',
                                                            send_spike, j*4)
             if action == 1:
                 print 'go left'
-                live_spikes_connection2.add_start_callback('input1',
+                live_spikes_connection2.add_start_callback('stateSpikeInjector',
                                                            send_spike, j*4 + 1)
             if action == 2:
                 print 'jump right'
-                live_spikes_connection2.add_start_callback('input1',
+                live_spikes_connection2.add_start_callback('stateSpikeInjector',
                                                            send_spike, j*4 + 2)
             if action == 3:
                 print 'jump left'
-                live_spikes_connection2.add_start_callback('input1',
+                live_spikes_connection2.add_start_callback('stateSpikeInjector',
                                                            send_spike, j*4 + 3)
         else:
-            live_spikes_connection2.add_start_callback('input1',
+            live_spikes_connection2.add_start_callback('stateSpikeInjector',
                                                        send_spike,
                                                        nextAction)
 
     sim.run(2000 + i*2000)
-    live_spikes_connection2.clear_start_resume_callbacks('input1')
+    live_spikes_connection2.clear_start_resume_callbacks('stateSpikeInjector')
     sleep(1.5)
     weights = stdp_projection.getWeights()
     print weights
     execute_commands()
     print 'Executing rewards / punishments'
     sim.run(2000 + i*2000)
-    live_spikes_connection2.clear_start_resume_callbacks('input1')
+    live_spikes_connection2.clear_start_resume_callbacks('stateSpikeInjector')
     weights = stdp_projection.getWeights()
     print weights
     sleep(1)

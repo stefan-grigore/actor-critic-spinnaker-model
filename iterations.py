@@ -13,10 +13,10 @@ from datetime import datetime
 sim.setup(timestep=1.0)
 sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
 
-input1 = sim.Population(4, sim.external_devices.SpikeInjector(), label="input1")
+input1 = sim.Population(4, sim.external_devices.SpikeInjector(), label="stateSpikeInjector")
 
-pre_pop = sim.Population(4, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="pre_pop")
-post_pop = sim.Population(4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="post_pop")
+pre_pop = sim.Population(4, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="statePopulation")
+post_pop = sim.Population(4, sim.IF_curr_exp(tau_syn_E=25, tau_refrac=100), label="actorPopulation")
 
 sim.external_devices.activate_live_output_for(pre_pop, database_notify_host="localhost", database_notify_port_num=19996)
 sim.external_devices.activate_live_output_for(input1, database_notify_host="localhost", database_notify_port_num=19998)
@@ -81,12 +81,12 @@ numberOfSpikes = 1
 
 
 live_spikes_connection = sim.external_devices.SpynnakerLiveSpikesConnection(
-    receive_labels=["post_pop"], local_port=20000, send_labels=None)
+    receive_labels=["actorPopulation"], local_port=20000, send_labels=None)
 
 live_spikes_connection2 = sim.external_devices.SpynnakerLiveSpikesConnection(
-    receive_labels=None, local_port=19998, send_labels=['input1'])
+    receive_labels=None, local_port=19998, send_labels=['stateSpikeInjector'])
 
-live_spikes_connection.add_receive_callback("post_pop", receive_spikes)
+live_spikes_connection.add_receive_callback("actorPopulation", receive_spikes)
 
 
 def send_right_spike(label, sender):
@@ -106,7 +106,7 @@ def send_jump_left_spike(label, sender):
 
 
 def send_spikes(id):
-    live_spikes_connection2.send_spike('input1', id,
+    live_spikes_connection2.send_spike('stateSpikeInjector', id,
                                        send_full_keys=True)
 
 
@@ -150,18 +150,18 @@ for i in range(10):
     if yOffset < 0:
         # too much to the left
         if xOffset > 0:
-            live_spikes_connection2.add_start_callback('input1', send_jump_right_spike)
+            live_spikes_connection2.add_start_callback('stateSpikeInjector', send_jump_right_spike)
         # too much to the right
         else:
-            live_spikes_connection2.add_start_callback('input1', send_jump_left_spike)
+            live_spikes_connection2.add_start_callback('stateSpikeInjector', send_jump_left_spike)
     else:
         # too much to the left
         if xOffset > 0:
-            live_spikes_connection2.add_start_callback('input1',
+            live_spikes_connection2.add_start_callback('stateSpikeInjector',
                                                        send_right_spike)
         # too much to the right
         else:
-            live_spikes_connection2.add_start_callback('input1',
+            live_spikes_connection2.add_start_callback('stateSpikeInjector',
                                                        send_left_spike)
     sim.run(3000)
     sleep(1.5)
@@ -173,7 +173,7 @@ for i in range(10):
     weightLeft.append(weights[1])
     weightJumpRight.append(weights[2])
     weightJumpLeft.append(weights[2])
-    live_spikes_connection2.pop_start_resume_callback('input1')
+    live_spikes_connection2.pop_start_resume_callback('stateSpikeInjector')
 
     press_key(k.escape_key)
     press_key(k.down_key)
@@ -191,7 +191,7 @@ for i in range(10):
     press_key(k.enter_key)
 
 
-# neo = post_pop.get_data(variables=["spikes", "v"])
+# neo = actorPopulation.get_data(variables=["spikes", "v"])
 # spikes = neo.segments[0].spiketrains
 # v = neo.segments[0].filter(name='v')[0]
 neo = post_pop.get_data(variables=["spikes", "v"])

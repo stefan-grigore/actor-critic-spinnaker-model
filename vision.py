@@ -85,11 +85,11 @@ captureScreen()
 sim.setup(timestep=1.0)
 sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
 
-input1 = sim.Population(6, sim.external_devices.SpikeInjector(), label="input1")
+input1 = sim.Population(6, sim.external_devices.SpikeInjector(), label="stateSpikeInjector")
 
-pre_pop = sim.Population(6, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="pre_pop")
+pre_pop = sim.Population(6, sim.IF_curr_exp(tau_syn_E=100, tau_refrac=50), label="statePopulation")
 
-post_pop = sim.Population(1, sim.IF_curr_exp(), label="post_pop")
+post_pop = sim.Population(1, sim.IF_curr_exp(), label="actorPopulation")
 sim.external_devices.activate_live_output_for(pre_pop, database_notify_host="localhost", database_notify_port_num=19996)
 sim.external_devices.activate_live_output_for(input1, database_notify_host="localhost", database_notify_port_num=19998)
 
@@ -141,19 +141,19 @@ def send_spike(label, sender):
 
 
 live_spikes_connection = sim.external_devices.SpynnakerLiveSpikesConnection(
-    receive_labels=["pre_pop"], local_port=19996, send_labels=None)
+    receive_labels=["statePopulation"], local_port=19996, send_labels=None)
 
 live_spikes_connection2 = sim.external_devices.SpynnakerLiveSpikesConnection(
-    receive_labels=None, local_port=19998, send_labels=['input1'])
+    receive_labels=None, local_port=19998, send_labels=['stateSpikeInjector'])
 
-live_spikes_connection.add_receive_callback("pre_pop", receive_spikes)
+live_spikes_connection.add_receive_callback("statePopulation", receive_spikes)
 
 
 # def on_press(key):
 #     if key == Key.ctrl_l:
 #         # Stop listener
 #         return False
-#     send_spike('input1', live_spikes_connection2)
+#     send_spike('stateSpikeInjector', live_spikes_connection2)
 #
 #
 # def input_thread():
@@ -172,7 +172,7 @@ def send_spikes(id):
         # spikes = randint(0, 5)
         # for i in range(0, spikes + 1):
             # print 'left spike'
-        live_spikes_connection2.send_spike('input1', id,
+        live_spikes_connection2.send_spike('stateSpikeInjector', id,
                                            send_full_keys=True)
 
         sleep(uniform(0, 3))
@@ -218,7 +218,7 @@ thread5.start()
 
 sim.run(50000)
 
-# neo = post_pop.get_data(variables=["spikes", "v"])
+# neo = actorPopulation.get_data(variables=["spikes", "v"])
 # spikes = neo.segments[0].spiketrains
 # v = neo.segments[0].filter(name='v')[0]
 neo = pre_pop.get_data(variables=["spikes", "v"])

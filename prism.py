@@ -69,10 +69,9 @@ actorPopulation.record(["spikes", "v"])
 k = PyKeyboard()
 
 step = 1
-history = []
+log = []
 nextAction = 0
 
-# these are absolutes
 prevXOffset = 0
 prevYOffset = 0
 
@@ -81,56 +80,51 @@ exploring = False
 
 
 def execute_commands():
-    global step, nextAction, prevXOffset, prevYOffset, exploring, didExplore, bestActions, historyStep, history
+    global step, nextAction, prevXOffset, prevYOffset, exploring, didExplore, actionsBuffer, logger, log, numberOfActions
     actionsArray = []
     try:
         print 'Executing commands for step: ' + str(step)
-        historyStep = 'step ' + str(step) + ': '
-        for index in range(len(bestActions)):
-            actionsArray.append(bestActions[index])
+        logger = 'step ' + str(step) + ': '
+        for index in range(len(actionsBuffer)):
+            actionsArray.append(actionsBuffer[index])
         commands = list(set(actionsArray))
         commands = [x for x in commands if x != -1]
         print 'Commands: \n' + str(commands)
         commands.sort()
         for neuron_id in commands:
-            neuron_id %= 4
+            neuron_id %= numberOfActions
             if str(neuron_id) is '0':
                 sleep(0.15)
-                historyStep += ' went right, '
-                time = datetime.time(datetime.now())
+                logger += ' went right, '
                 k.press_key(k.right_key)
                 sleep(0.5)
-                time = datetime.time(datetime.now())
                 k.release_key(k.right_key)
             if str(neuron_id) is '1':
                 sleep(0.15)
-                historyStep += ' went left, '
-                time = datetime.time(datetime.now())
+                logger += ' went left, '
                 k.press_key(k.left_key)
                 sleep(0.5)
-                time = datetime.time(datetime.now())
                 k.release_key(k.left_key)
             if str(neuron_id) is '2':
                 sleep(0.15)
-                historyStep += ' jumped right, '
-                time = datetime.time(datetime.now())
+                logger += ' jumped right, '
                 k.press_key(k.space)
                 k.press_key(k.right_key)
                 sleep(0.5)
-                time = datetime.time(datetime.now())
                 k.release_key(k.space)
                 k.release_key(k.right_key)
             if str(neuron_id) is '3':
                 sleep(0.15)
-                historyStep += ' jumped left, '
-                time = datetime.time(datetime.now())
+                logger += ' jumped left, '
                 k.press_key(k.space)
                 k.press_key(k.left_key)
                 sleep(0.5)
-                time = datetime.time(datetime.now())
                 k.release_key(k.space)
                 k.release_key(k.left_key)
         sleep(0.5)
+
+
+        # Figure out next action based on current state
         print 'For the next action in step ' + str(step + 1)
         image = pyautogui.screenshot(region=(0, 250, 1250, 700))
         image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
@@ -196,26 +190,24 @@ def execute_commands():
         if abs(xOffset) < 300 and abs(yOffset) < 20:
             print 'We\'re close to the goal'
             # too much to the left
-            # too much to the left
-
             if xOffset > 0:
-                historyStep += ' went right, '
+                logger += ' went right, '
                 time = datetime.time(datetime.now())
                 k.press_key(k.right_key)
                 sleep(1)
                 time = datetime.time(datetime.now())
             # too much to the right
             else:
-                historyStep += ' went left, '
+                logger += ' went left, '
                 time = datetime.time(datetime.now())
                 k.press_key(k.left_key)
                 sleep(1)
                 time = datetime.time(datetime.now())
                 k.release_key(k.left_key)
-            historyStep += ' won the game!'
-            history.append(historyStep)
-            for historyStep in history:
-                    print historyStep
+            logger += ' won the game!'
+            log.append(logger)
+            for logger in log:
+                    print logger
             sys.exit()
 
 
@@ -263,77 +255,79 @@ def execute_commands():
         if step is 1:
             prevXOffset = abs(xOffset)
             prevYOffset = abs(yOffset)
+
+
+
         # if progress has been made in any direction
-        # TODO: also check if progress has been made globally
         elif abs(xOffset) + 5 < prevXOffset or abs(yOffset) + 5 < prevYOffset:
             exploring = False
-            historyStep += ' better than previous step'
+            logger += ' better than previous step'
             print 'better than previous step'
             # reward
             for index in range(0, len(commands)):
                 reward = numberOfSteps - step + index + 1
                 for i in range(0, reward):
-                    send_spike('stateSpikeInjector', live_spikes_connection2, commands[index])
+                    send_spike('stateSpikeInjector', pre_synaptic_spikes_connection, commands[index])
                 reward -= 1
                 prevXOffset = abs(xOffset)
                 prevYOffset = abs(yOffset)
         else:
             if not didExplore:
                 exploring = True
-            historyStep += ' worse than previous step'
+            logger += ' worse than previous step'
             print 'worse than previous step'
             # punishment
             for index in range(0, len(commands)):
                 punishment = numberOfSteps - step + index + 1
                 for i in range(0, punishment):
                     # fire post synaptic neuron
-                    send_spike('actorSpikeInjector', live_spikes_connection3, commands[index])
+                    send_spike('actorSpikeInjector', post_synaptic_spikes_connection, commands[index])
                     # then fire pre-synaptic neuron
-                    send_spike('stateSpikeInjector', live_spikes_connection2, commands[index])
+                    send_spike('stateSpikeInjector', pre_synaptic_spikes_connection, commands[index])
 
                 punishment -= 1
             prevXOffset = abs(xOffset)
             prevYOffset = abs(yOffset)
         didExplore = exploring
         step += 1
-        history.append(historyStep)
+        log.append(logger)
     except RuntimeError:
         pass
 
 
-fired = False
-checkingWeights = False
+firstSpike = True
+decodingActions = False
 currentStep = 0
 
 
-def receive_spikes(label, time, neuron_ids):
-    global fired, currentStep, bestActions, checkingWeights
+def spike_receiver(label, time, neuron_ids):
+    global firstSpike, currentStep, actionsBuffer, decodingActions
     try:
         for neuron_id in neuron_ids:
-            if checkingWeights and not fired:
+            if decodingActions and firstSpike:
                 'We are checking the weights'
-                bestActions[currentStep] = neuron_id
-                print 'Set best action of step ' + str(currentStep) + ' to be ' + str(bestActions[currentStep])
-                fired = True
+                actionsBuffer[currentStep] = neuron_id
+                print 'Set best action of step ' + str(currentStep) + ' to be ' + str(actionsBuffer[currentStep])
+                firstSpike = False
                 break
     except RuntimeError:
         pass
 
 
 
-live_spikes_connection = sim.external_devices.SpynnakerLiveSpikesConnection(
+actor_spikes_connection = sim.external_devices.SpynnakerLiveSpikesConnection(
     receive_labels=["actorPopulation"], local_port=20000, send_labels=None)
 
-live_spikes_connection2 = sim.external_devices.SpynnakerLiveSpikesConnection(
+pre_synaptic_spikes_connection = sim.external_devices.SpynnakerLiveSpikesConnection(
     receive_labels=None, local_port=19998, send_labels=['stateSpikeInjector'])
 
-live_spikes_connection3 = sim.external_devices.SpynnakerLiveSpikesConnection(
+post_synaptic_spikes_connection = sim.external_devices.SpynnakerLiveSpikesConnection(
     receive_labels=None, local_port=20002, send_labels=['actorSpikeInjector'])
 
-live_spikes_connection4 = sim.external_devices.SpynnakerLiveSpikesConnection(
+first_spike_trigger_connection = sim.external_devices.SpynnakerLiveSpikesConnection(
     receive_labels=None, local_port=20004, send_labels=['firstSpikeTrigger'])
 
-live_spikes_connection.add_receive_callback("actorPopulation", receive_spikes)
+actor_spikes_connection.add_receive_callback("actorPopulation", spike_receiver)
 
 
 def send_spike(label, sender, index):
@@ -366,7 +360,7 @@ class Step:
 listOfStepObjects = [Step() for i in range(numberOfSteps)]
 
 
-def restarting_game_thread():
+def restart_game():
     print 'Restarting game'
     press_key(k.escape_key)
     press_key(k.down_key)
@@ -387,7 +381,7 @@ def restarting_game_thread():
 def get_first_action():
     global nextAction, step
     sleep(1)
-    restarting_game_thread()
+    restart_game()
     sleep(1)
     image = pyautogui.screenshot(region=(0, 250, 1250, 700))
     image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
@@ -480,73 +474,46 @@ def get_first_action():
     print 'Next action: ' + str(nextAction)
 
 
-bestActions = {}
+actionsBuffer = {}
 
 
-def simulation_thread():
-    global currentStep, checkingWeights, fired, bestActions
+def model_thread():
+    global currentStep, decodingActions, firstSpike, actionsBuffer
     get_first_action()
-    print 'Simualtion thread started'
+    print 'Model thread started'
+    # wait for SpiNNaker simulation thread to start
     sleep(3)
-    print 'Begin sending moves'
-    for i in range(numberOfSteps):
-        print 'Step ' + str(i) + ' in simulation thread'
-        for j in range(i+1):
-            if j != i:
-                checkingWeights = True
-                currentStep = j
-                send_spike('firstSpikeTrigger', live_spikes_connection4, j)
-                fired = False
+    for episode in range(numberOfSteps):
+        print 'At episode ' + str(episode) + ' in model thread'
+        for stepIndex in range(episode+1):
+            # if not last step
+            if stepIndex != episode:
+                # start decoding actions
+                decodingActions = True
+                currentStep = stepIndex
+                # send first spike response for this step
+                send_spike('firstSpikeTrigger', first_spike_trigger_connection, stepIndex)
+                firstSpike = True
                 sleep(0.1)
-                checkingWeights = False
+                decodingActions = False
             else:
-                bestActions[j] = nextAction
-                send_spike('stateSpikeInjector', live_spikes_connection2, nextAction)
-
+                # record best action given by the environment and encode it
+                actionsBuffer[stepIndex] = nextAction
+                send_spike('stateSpikeInjector', pre_synaptic_spikes_connection, nextAction)
         sleep(1.5)
         execute_commands()
         sleep(1)
-        # erase best actions
-        # bestActions[len(bestActions)] holds action suggested by environment
-        for actionIndex in range(len(bestActions) - 1):
-            bestActions[actionIndex] = -1
+        # clear action buffer
+        # actionsBuffer[len(actionsBuffer)] holds action suggested by environment
+        for actionIndex in range(len(actionsBuffer) - 1):
+            actionsBuffer[actionIndex] = -1
 
-        if i is not numberOfSteps:
-            restarting_game_thread()
+        # if didn't finish simulation
+        if episode is not numberOfSteps:
+            restart_game()
 
 
-threading.Thread(target=simulation_thread).start()
+threading.Thread(target=model_thread).start()
 sim.run(numberOfSteps * 10000)
 
-neo = actorPopulation.get_data(variables=["spikes", "v"])
-spikes2 = neo.segments[0].spiketrains
-v2 = neo.segments[0].filter(name='v')[0]
-
 sim.end()
-
-# for j in range(numberOfSteps):
-#     if (listOfStepObjects[j].weightPlotRight.count(listOfStepObjects[j].weightPlotRight[0]) != len(listOfStepObjects[j].weightPlotRight)):
-#         plt.plot(listOfStepObjects[j].weightPlotRight, label='right weights at step ' + str(j))
-#         print 'right weights at step ' + str(j) + ' ' + str(listOfStepObjects[j].weightPlotRight)
-#     if (listOfStepObjects[j].weightPlotLeft.count(listOfStepObjects[j].weightPlotLeft[0]) != len(listOfStepObjects[j].weightPlotLeft)):
-#         plt.plot(listOfStepObjects[j].weightPlotLeft, label='left weights at step ' + str(j))
-#         print 'left weights at step ' + str(j) + ' ' + str(listOfStepObjects[j].weightPlotLeft)
-#     if (listOfStepObjects[j].weightPlotJumpRight.count(listOfStepObjects[j].weightPlotJumpRight[0]) != len(listOfStepObjects[j].weightPlotJumpRight)):
-#         plt.plot(listOfStepObjects[j].weightPlotJumpRight, label='jump right weights at step ' + str(j))
-#         print 'jump right weights at step ' + str(j) + ' ' + str(listOfStepObjects[j].weightPlotJumpRight)
-#     if (listOfStepObjects[j].weightPlotJumpLeft.count(listOfStepObjects[j].weightPlotJumpLeft[0]) != len(listOfStepObjects[j].weightPlotJumpLeft)):
-#         plt.plot(listOfStepObjects[j].weightPlotJumpLeft, label='jump left weights at step ' + str(j))
-#         print 'jump left weights at step ' + str(j) + ' ' + str(listOfStepObjects[j].weightPlotJumpLeft)
-#
-#
-# plt.legend()
-# plt.show()
-
-# plot.Figure(
-#     plot.Panel(v2, ylabel="Membrane potential (mV)",
-#                data_labels=['controls'], yticks=True),
-#     plot.Panel(spikes2, yticks=True, markersize=5),
-#     title="Simple Example",
-#     annotations="Simulated with {}".format(sim.name())
-# )
-# plt.show()

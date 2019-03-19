@@ -88,7 +88,7 @@ live_spikes_connection.add_receive_callback("statePopulation", receive_spikes)
 #     if key == Key.ctrl_l:
 #         # Stop listener
 #         return False
-#     send_spike('stateSpikeInjector', live_spikes_connection2)
+#     send_spike('stateSpikeInjector', pre_synaptic_spikes_connection)
 #
 #
 # def input_thread():

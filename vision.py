@@ -34,8 +34,6 @@ class ShapeDetector:
 
         return shape
 
-pyautogui.keyDown('shift')
-
 def captureScreen():
     # take a screenshot of the screen and store it in memory, then
     # convert the PIL/Pillow image to an OpenCV compatible NumPy array
@@ -153,7 +151,7 @@ live_spikes_connection.add_receive_callback("statePopulation", receive_spikes)
 #     if key == Key.ctrl_l:
 #         # Stop listener
 #         return False
-#     send_spike('stateSpikeInjector', live_spikes_connection2)
+#     send_spike('stateSpikeInjector', pre_synaptic_spikes_connection)
 #
 #
 # def input_thread():

@@ -15,6 +15,7 @@ sim.setup(timestep=1.0)
 sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
 
 numberOfSteps = 12
+numberOfActions = 4
 
 input1 = sim.Population(numberOfSteps*4, sim.external_devices.SpikeInjector(), label="stateSpikeInjector")
 
@@ -35,6 +36,15 @@ stdp_model = sim.STDPMechanism(timing_dependence=timing_rule,
                                weight_dependence=weight_rule,
                                weight=2, delay=1)
 
+connectionList = []
+
+for step in range(numberOfSteps-1):
+    for action in range(numberOfActions):
+        connectionList.append((action, action + numberOfActions))
+
+moves_projection = sim.Projection(post_pop, post_pop, sim.FromListConnector(connectionList),
+                                  synapse_type=sim.StaticSynapse(weight=5, delay=2))
+
 stdp_projection = sim.Projection(pre_pop, post_pop, sim.OneToOneConnector(),
                                  synapse_type=stdp_model)
 
@@ -51,7 +61,7 @@ k = PyKeyboard()
 
 step = 1
 firedIndex = []
-history = []
+log = []
 nextAction = 0
 
 # these are absolutes
@@ -258,7 +268,7 @@ def execute_commands():
             prevYOffset = abs(yOffset)
         didExplore = exploring
         step += 1
-        history.append(historyStep)
+        log.append(historyStep)
     except RuntimeError:
         pass
 
@@ -268,7 +278,7 @@ def receive_spikes(label, time, neuron_ids):
     try:
         print str(neuron_ids)
         for neuron_id in neuron_ids:
-            print 'fired ' + str(neuron_id)
+            print 'firstSpike ' + str(neuron_id)
             firedIndex.append(neuron_id)
     except RuntimeError:
         pass
@@ -484,8 +494,8 @@ v2 = neo.segments[0].filter(name='v')[0]
 
 sim.end()
 
-for historyStep in history:
-    print historyStep
+for logger in log:
+    print logger
 
 # for j in range(numberOfSteps):
 #     if (listOfStepObjects[j].weightPlotRight.count(listOfStepObjects[j].weightPlotRight[0]) != len(listOfStepObjects[j].weightPlotRight)):

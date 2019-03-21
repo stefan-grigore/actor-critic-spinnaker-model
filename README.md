@@ -22,4 +22,4 @@ This file contains all components of the actor-critic model, with the implementa
 
 ## asynchronousDemonstration.py
 
-This file contains the final implementation of the model, which runs the model and simulation in separate threads and decodes the by using first spike coding rather than stopping the simulation and reading the weights after each learning episode.
+This file contains the final implementation of the model, which runs the model and simulation in separate threads and decodes the actions by using first spike coding rather than stopping the simulation and reading the weights after each learning episode.

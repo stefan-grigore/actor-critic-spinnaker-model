@@ -5,79 +5,6 @@ import threading
 from random import uniform
 from time import sleep
 from pykeyboard import PyKeyboard
-import cv2
-import numpy as np
-import pyautogui
-
-class ShapeDetector:
-    def __init__(self):
-        pass
-
-    def detect(self, c):
-        # initialize the shape name and approximate the contour
-        shape = "unidentified"
-        peri = cv2.arcLength(c, True)
-        approx = cv2.approxPolyDP(c, 0.04 * peri, True)
-        # if the shape has 4 vertices, it is either a square or
-        # a rectangle
-        if len(approx) == 4:
-            # compute the bounding box of the contour and use the
-            # bounding box to compute the aspect ratio
-            (x, y, w, h) = cv2.boundingRect(approx)
-            ar = w / float(h)
-            # a square will have an aspect ratio that is approximately
-            # equal to one, otherwise, the shape is a rectangle
-            shape = "square" if ar >= 0.95 and ar <= 1.05 else "not square"
-        else:
-            shape = "not square"
-
-        return shape
-
-def captureScreen():
-    # take a screenshot of the screen and store it in memory, then
-    # convert the PIL/Pillow image to an OpenCV compatible NumPy array
-    # and finally write the image to disk
-    sleep(2)
-    image = pyautogui.screenshot(region=(0, 200, 1250, 700))
-    image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-    cv2.imwrite("screenCapture.png", image)
-    meatboy_image = cv2.imread('meatboy.png')
-    meatgirl_image = cv2.imread('meatgirl.png')
-    large_image = cv2.imread('screenCapture.png')
-    method = cv2.TM_SQDIFF_NORMED
-    result = cv2.matchTemplate(meatboy_image.astype(np.float32), large_image.astype(np.float32), method)
-    result2 = cv2.matchTemplate(meatgirl_image.astype(np.float32), large_image.astype(np.float32), method)
-    # We want the minimum squared difference
-    mn, _, mnLoc, _ = cv2.minMaxLoc(result)
-    mn2, _, mnLoc2, _ = cv2.minMaxLoc(result2)
-    # Extract the coordinates of our best match
-    MPx, MPy = mnLoc
-    MPx2, MPy2 = mnLoc2
-    print MPx
-    print MPy
-    print
-    print MPx2
-    print MPy2
-
-    print 'X offset:' + str(MPx2-MPx)
-    print 'Y offset:' + str(MPy2-MPy)
-    # Step 2: Get the size of the template. This is the same size as the match.
-    trows, tcols = meatboy_image.shape[:2]
-    trows2, tcols2 = meatgirl_image.shape[:2]
-
-    # Step 3: Draw the rectangle on large_image
-    cv2.rectangle(large_image, (MPx, MPy), (MPx + tcols, MPy + trows), (0, 255, 0), 2)
-    cv2.rectangle(large_image, (MPx2, MPy2), (MPx2 + tcols2, MPy2 + trows2), (0, 255, 0), 2)
-
-    # Display the original image with the rectangle around the match.
-    cv2.imshow('output', large_image)
-
-    # The image is only displayed if we call this
-    cv2.waitKey(0)
-
-    sleep(10000)
-
-captureScreen()
 
 sim.setup(timestep=1.0)
 sim.set_number_of_neurons_per_core(sim.IF_curr_exp, 100)
@@ -109,25 +36,28 @@ k = PyKeyboard()
 
 
 def receive_spikes(label, time, neuron_ids):
-    for neuron_id in neuron_ids:
-        if str(neuron_id) is '0':
-            print 'press right'
-            k.press_key(k.right_key)
-        if str(neuron_id) is '1':
-            print 'release right'
-            k.release_key(k.right_key)
-        if str(neuron_id) is '2':
-            print 'press left'
-            k.press_key(k.left_key)
-        if str(neuron_id) is '3':
-            print 'release left'
-            k.release_key(k.left_key)
-        if str(neuron_id) is '4':
-            print 'press space'
-            k.press_key(k.space)
-        if str(neuron_id) is '5':
-            print 'release space'
-            k.release_key(k.space)
+    try:
+        for neuron_id in neuron_ids:
+            if str(neuron_id) is '0':
+                print 'press right'
+                k.press_key(k.right_key)
+            if str(neuron_id) is '1':
+                print 'release right'
+                k.release_key(k.right_key)
+            if str(neuron_id) is '2':
+                print 'press left'
+                k.press_key(k.left_key)
+            if str(neuron_id) is '3':
+                print 'release left'
+                k.release_key(k.left_key)
+            if str(neuron_id) is '4':
+                print 'press space'
+                k.press_key(k.space)
+            if str(neuron_id) is '5':
+                print 'release space'
+                k.release_key(k.space)
+    except RuntimeError:
+        pass
 
 
 def send_spike(label, sender):
@@ -144,11 +74,10 @@ live_spikes_connection2 = sim.external_devices.SpynnakerLiveSpikesConnection(
 live_spikes_connection.add_receive_callback("statePopulation", receive_spikes)
 
 def send_spikes(id):
-    sleep(17)
+    sleep(12)
     while True:
         live_spikes_connection2.send_spike('stateSpikeInjector', id,
                                            send_full_keys=True)
-
         sleep(uniform(0, 3))
 
 
@@ -190,7 +119,7 @@ thread3.start()
 thread4.start()
 thread5.start()
 
-sim.run(50000)
+sim.run(13000)
 
 neo = pre_pop.get_data(variables=["spikes", "v"])
 spikes2 = neo.segments[0].spiketrains

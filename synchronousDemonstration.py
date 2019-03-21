@@ -1,6 +1,4 @@
 import pyNN.spiNNaker as sim
-import pyNN.utility.plotting as plot
-import matplotlib.pyplot as plt
 import threading
 from time import sleep
 from pykeyboard import PyKeyboard
@@ -497,29 +495,3 @@ sim.end()
 for logger in log:
     print logger
 
-# for j in range(numberOfSteps):
-#     if (listOfStepObjects[j].weightPlotRight.count(listOfStepObjects[j].weightPlotRight[0]) != len(listOfStepObjects[j].weightPlotRight)):
-#         plt.plot(listOfStepObjects[j].weightPlotRight, label='right weights at step ' + str(j))
-#         print 'right weights at step ' + str(j) + ' ' + str(listOfStepObjects[j].weightPlotRight)
-#     if (listOfStepObjects[j].weightPlotLeft.count(listOfStepObjects[j].weightPlotLeft[0]) != len(listOfStepObjects[j].weightPlotLeft)):
-#         plt.plot(listOfStepObjects[j].weightPlotLeft, label='left weights at step ' + str(j))
-#         print 'left weights at step ' + str(j) + ' ' + str(listOfStepObjects[j].weightPlotLeft)
-#     if (listOfStepObjects[j].weightPlotJumpRight.count(listOfStepObjects[j].weightPlotJumpRight[0]) != len(listOfStepObjects[j].weightPlotJumpRight)):
-#         plt.plot(listOfStepObjects[j].weightPlotJumpRight, label='jump right weights at step ' + str(j))
-#         print 'jump right weights at step ' + str(j) + ' ' + str(listOfStepObjects[j].weightPlotJumpRight)
-#     if (listOfStepObjects[j].weightPlotJumpLeft.count(listOfStepObjects[j].weightPlotJumpLeft[0]) != len(listOfStepObjects[j].weightPlotJumpLeft)):
-#         plt.plot(listOfStepObjects[j].weightPlotJumpLeft, label='jump left weights at step ' + str(j))
-#         print 'jump left weights at step ' + str(j) + ' ' + str(listOfStepObjects[j].weightPlotJumpLeft)
-#
-#
-# plt.legend()
-# plt.show()
-
-# plot.Figure(
-#     plot.Panel(v2, ylabel="Membrane potential (mV)",
-#                data_labels=['controls'], yticks=True),
-#     plot.Panel(spikes2, yticks=True, markersize=5),
-#     title="Simple Example",
-#     annotations="Simulated with {}".format(sim.name())
-# )
-# plt.show()

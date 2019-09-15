@@ -2,7 +2,7 @@
 
 ----
 
-This repository contains an actor-critic implementation of a spiking neural network learning agent at different stages of development, which solves a Gridworld inspired problem: the levels of a commercially available platform game, Super Meat Boy.
+This repository contains an actor-critic implementation of a spiking neural network learning agent at different stages of development. The network was configured to solve a Gridworld inspired problem: the levels of a commercially available platform game, Super Meat Boy.
 
 ## randomSpikesDemonstration.py
 
